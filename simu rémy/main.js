@@ -16,6 +16,17 @@ let join_break_error = 5.6;
 
 let tool = "tear";
 
+let pointColor = {
+  hue: 222.16,
+  saturation: 100,
+  lightness: 50,
+  hsl: function () {
+    return (
+      "hsl(" + this.hue + ", " + this.saturation + "%, " + this.lightness + "%)"
+    );
+  },
+};
+
 //Basic physics parameters
 let k_0 = 200000;
 let k = 200000;
@@ -35,31 +46,41 @@ function modifyClothType() {
   const dropDownCloth = document.getElementById("clothType");
   const selectedValue =
     dropDownCloth.options[dropDownCloth.selectedIndex].value;
-  console.log(selectedValue);
-  if (selectedValue == "cotton") {
-    k_0 = 200000;
-    kv = 20;
-    dotSize = 0.2;
-    size = 10;
-    spacing = 0.8;
-  } else if (selectedValue == "wool") {
-    k_0 = 200000;
-    kv = 40;
-    dotSize = 0.4;
-    size = 10;
-    spacing = 0.8;
-  } else if (selectedValue == "silk") {
-    k_0 = 20000;
-    kv = 100;
-    dotSize = 0.1;
-    size = 20;
-    spacing = 0.4;
-  } else if (selectedValue == "polyester") {
-    k_0 = 200000;
-    kv = 20;
-    dotSize = 0.2;
-    size = 10;
-    spacing = 0.8;
+  switch (selectedValue) {
+    case "cotton":
+      k_0 = 200000;
+      kv = 20;
+      dotSize = 0.2;
+      size = 10;
+      spacing = 0.8;
+      break;
+    case "wool":
+      k_0 = 200000;
+      kv = 40;
+      dotSize = 0.4;
+      size = 8;
+      spacing = 0.8;
+      break;
+    case "silk":
+      k_0 = 20000;
+      kv = 200;
+      dotSize = 0.1;
+      size = 20;
+      spacing = 0.4;
+      break;
+    case "polyester":
+      k_0 = 400000;
+      kv = 20;
+      dotSize = 0.2;
+      size = 10;
+      spacing = 0.8;
+      break;
+    default:
+      k_0 = 200000;
+      kv = 20;
+      dotSize = 0.2;
+      size = 10;
+      spacing = 0.8;
   }
 
   init();
@@ -71,8 +92,38 @@ function modifyTime() {
   const timeSlider = document.getElementById("useDuration");
   document.getElementById("useDurationValue").innerText = timeSlider.value;
 
-  k = k_0 / (0.5 * (timeSlider.value + 1));
+  k = k_0 / (0.01 * (timeSlider.value + 1));
   //  kv = (20 * 1) / (timeSlider.value + 1);
+  modifyColor(timeSlider.value);
+}
+function modifyColor(t) {
+  const dropDownCloth = document.getElementById("clothType");
+  const selectedCloth =
+    dropDownCloth.options[dropDownCloth.selectedIndex].value;
+
+  const dropDownDye = document.getElementById("dyeType");
+  const selectedDye = dropDownDye.options[dropDownDye.selectedIndex].value;
+
+  switch (selectedCloth) {
+    case "cotton":
+      switch (selectedDye) {
+        case "dye1":
+          console.log("dye1");
+          pointColor.saturation = Math.max(0, 100 - t);
+          break;
+        case "dye2":
+          console.log("dye2");
+          pointColor.saturation = Math.max(0, 100 - 2 * t);
+          break;
+        default:
+          pointColor.saturation = Math.max(0, 100 - t);
+      }
+      pointColor.saturation = Math.max(0, 100 - t);
+    case "wool":
+      pointColor.saturation = Math.max(0, 100 - 2 * t); //Dye disappears twice as fast on wool
+    default:
+      pointColor.saturation = Math.max(0, 100 - t);
+  }
 }
 
 function resize() {
@@ -323,7 +374,7 @@ function frame(t_ms = 0) {
   }
 
   for (const point of points) {
-    ctx.fillStyle = point.pinned ? "red" : "black";
+    ctx.fillStyle = point.pinned ? "red" : pointColor.hsl();
     ctx.beginPath();
     ctx.arc(point.x, point.y, dotSize, 0, 2 * Math.PI);
     ctx.fill();

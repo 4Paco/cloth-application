@@ -7,7 +7,10 @@ timeSlider.addEventListener("input", modifyTime);
 const dropDownCloth = document.getElementById("clothType");
 dropDownCloth.addEventListener("input", modifyClothType);
 
-const border_margin = { x: 100, y: 100 };
+const dropDownDye = document.getElementById("dyeType");
+dropDownDye.addEventListener("input", modifyDyeType);
+
+const border_margin = { x: 0, y: 0 };
 
 let canvas_size = { width: 0, height: 0 };
 
@@ -87,6 +90,22 @@ function modifyClothType() {
 
   //modifyTime(); //essential to update the k value to the new k_0 value
 }
+function modifyDyeType() {
+  const dropDownDye = document.getElementById("dyeType");
+  const selectedDye = dropDownDye.options[dropDownDye.selectedIndex].value;
+  switch (selectedDye) {
+    case "dye1":
+      pointColor.hue = 330.95;
+      break;
+    case "dye2":
+      pointColor.hue = 41.37;
+      break;
+    default:
+      pointColor.hue = 222.16;
+  }
+  modifyTime();
+  init();
+}
 
 function modifyTime() {
   const timeSlider = document.getElementById("useDuration");
@@ -96,6 +115,7 @@ function modifyTime() {
   //  kv = (20 * 1) / (timeSlider.value + 1);
   modifyColor(timeSlider.value);
 }
+
 function modifyColor(t) {
   const dropDownCloth = document.getElementById("clothType");
   const selectedCloth =
@@ -108,19 +128,18 @@ function modifyColor(t) {
     case "cotton":
       switch (selectedDye) {
         case "dye1":
-          console.log("dye1");
           pointColor.saturation = Math.max(0, 100 - t);
           break;
         case "dye2":
-          console.log("dye2");
-          pointColor.saturation = Math.max(0, 100 - 2 * t);
+          pointColor.saturation = Math.max(0, 100 - 4 * t);
           break;
         default:
           pointColor.saturation = Math.max(0, 100 - t);
       }
-      pointColor.saturation = Math.max(0, 100 - t);
+      break;
     case "wool":
       pointColor.saturation = Math.max(0, 100 - 2 * t); //Dye disappears twice as fast on wool
+      break;
     default:
       pointColor.saturation = Math.max(0, 100 - t);
   }
@@ -403,8 +422,8 @@ window.onload = () => {
   });
 
   resize();
-
-  init();
+  modifyClothType();
+  modifyDyeType();
 
   frame();
 };

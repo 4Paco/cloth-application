@@ -1,13 +1,42 @@
 //! An example of generating julia fractals.
-extern crate image;
-extern crate num_complex;
 
-struct Point {
-    x: f32,
-    y: f32,
+mod drawable;
+mod line;
+mod texture;
+mod wire;
+
+use std::f32;
+
+use drawable::Drawable;
+use image::Rgb32FImage;
+use line::*;
+use nalgebra::*;
+use texture::*;
+use wire::Wire;
+
+#[derive(Default)]
+struct World {
+    wires: Vec<Wire>,
 }
 
-fn draw_wire(a: Point, b: Point) {}
+fn world_point_to_texture(texture: &Texture, point: Point2<f32>) -> Vector2<i32> {
+    let texture_size = texture.size();
+    point
+        .coords
+        .component_div(&texture.extent)
+        .component_mul(&texture_size.map(|x| x as f32))
+        .map(|x| x.round() as i32)
+}
+
+fn texture_point_to_world(texture: &Texture, point: Point2<u32>) -> Point2<f32> {
+    let texture_size = texture.size();
+    point
+        .coords
+        .map(|x| x as f32)
+        .component_mul(&texture.extent)
+        .component_div(&texture_size.map(|x| x as f32))
+        .into()
+}
 
 fn main() {
     let imgx = 800;
@@ -26,24 +55,27 @@ fn main() {
         *pixel = image::Rgb([r, 0, b]);
     }
 
+    let world = World::default();
+    let texture = Texture::new(100, 100, Vector2::new(1., 1.));
+
     // A redundant loop to demonstrate reading image data
     for x in 0..imgx {
         for y in 0..imgy {
-            let cx = y as f32 * scalex - 1.5;
-            let cy = x as f32 * scaley - 1.5;
-
-            let c = num_complex::Complex::new(-0.4, 0.6);
-            let mut z = num_complex::Complex::new(cx, cy);
-
-            let mut i = 0;
-            while i < 255 && z.norm() <= 2.0 {
-                z = z * z + c;
-                i += 1;
-            }
-
             let pixel = imgbuf.get_pixel_mut(x, y);
-            let data = (*pixel as image::Rgb<u8>).0;
-            *pixel = image::Rgb([data[0], i as u8, data[2]]);
+
+            let texture_point: Point2<u32> = Point2::new(y, x);
+            let world_point: Point2<f32> = texture_point_to_world(&texture, texture_point);
+
+            let h = -world
+                .wires
+                .iter()
+                .map(|w| w.get_height(world_point))
+                .reduce(f32::min)
+                .unwrap_or(f32::INFINITY);
+
+            let v: u8 = (h / 10.) as u8;
+
+            *pixel = image::Rgb([v, v, v]);
         }
     }
 

@@ -4,7 +4,8 @@ from skimage import color
 import numpy as np
 
 # Load data from CSV
-csv_path = "../clothes-app/public/dataset/data_dyes.csv"  # Replace with your CSV file path
+# csv_path = "../clothes-app/public/dataset/data_dyes.csv"  # Replace with your CSV file path
+csv_path = "./tmp.csv"  # Replace with your CSV file path
 df = pd.read_csv(csv_path)
 
 # Group by 'id'

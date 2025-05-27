@@ -1,6 +1,6 @@
 use core::f32;
 
-use nalgebra::{Point2, Point3, Vector2, Vector3};
+use nalgebra::{Point2, Point3, Vector2, Vector3, clamp};
 
 use crate::{drawable::Drawable, line::Line};
 
@@ -26,7 +26,14 @@ impl Profile for CircleProfile {
         return x_normalized.cos();
     }
 
-    fn get_normal(&self, line: &Line, w1: f32, w2: f32, t: f32, x_normalized: f32) -> Vector3<f32> {
+    fn get_normal(
+        &self,
+        line: &Line,
+        w1: f32,
+        w2: f32,
+        _t: f32,
+        x_normalized: f32,
+    ) -> Vector3<f32> {
         let v_line: Vector2<f32> = line.end - line.start;
         let line_length = v_line.norm();
         let scale_angle = ((w2 - w1) / line_length).atan();
@@ -42,6 +49,7 @@ impl Profile for CircleProfile {
 
 pub struct Wire {
     pub nodes: Vec<WireNode>,
+    #[allow(unused)]
     pub material: Box<dyn Material>,
     pub profile: Box<dyn Profile>,
     pub caps: bool,
@@ -54,6 +62,7 @@ impl WireNode {
 }
 
 impl Wire {
+    #[allow(unused)]
     pub fn new(
         begin: Point3<f32>,
         end: Point3<f32>,
@@ -89,6 +98,8 @@ fn lerp(a: f32, b: f32, s: f32) -> f32 {
 
 impl Drawable for Wire {
     fn get_height(&self, point: Point2<f32>) -> f32 {
+        let mut best_cap_z: Option<f32> = None;
+        let mut best_hit_z: Option<f32> = None;
         for window in self.nodes.windows(2) {
             match &window {
                 &[a, b] => {
@@ -109,19 +120,39 @@ impl Drawable for Wire {
                     {
                         continue;
                     }
-                    match line.distance_to_point(point, self.caps) {
-                        crate::line::DistanceResult::OutOfBounds => continue,
-                        crate::line::DistanceResult::Full { t, d } => {
-                            let w1 = a.width;
-                            let w2 = b.width;
+                    let w1 = a.width;
+                    let w2 = b.width;
+
+                    let z1 = a.position.z;
+                    let z2 = b.position.z;
+
+                    match line.distance_to_point(point) {
+                        crate::line::DistanceResult::Caps { t, d } => {
                             let w = lerp(w1, w2, t);
-
-                            let z1 = a.position.z;
-                            let z2 = b.position.z;
                             let z = lerp(z1, z2, t);
-
+                            if self.caps && d <= w {
+                                let new_z = z + w * self.profile.get_height(d / w);
+                                if let Some(old_best_cap_z) = best_cap_z {
+                                    if new_z > old_best_cap_z {
+                                        best_cap_z = Some(new_z);
+                                    }
+                                } else {
+                                    best_cap_z = Some(new_z);
+                                }
+                            }
+                        }
+                        crate::line::DistanceResult::Full { t, d } => {
+                            let w = lerp(w1, w2, t);
+                            let z = lerp(z1, z2, t);
                             if d <= w {
-                                return z + w * self.profile.get_height(d / w);
+                                let new_z = z + w * self.profile.get_height(d / w);
+                                if let Some(old_best_hit_z) = best_hit_z {
+                                    if new_z > old_best_hit_z {
+                                        best_hit_z = Some(new_z);
+                                    }
+                                } else {
+                                    best_hit_z = Some(new_z);
+                                }
                             }
                         }
                     }
@@ -129,7 +160,7 @@ impl Drawable for Wire {
                 _ => (),
             }
         }
-        return -f32::INFINITY;
+        best_hit_z.unwrap_or(best_cap_z.unwrap_or(-f32::INFINITY))
     }
 
     fn get_normal(&self, point: Point2<f32>) -> Vector3<f32> {
@@ -137,11 +168,11 @@ impl Drawable for Wire {
             match &window {
                 &[a, b] => {
                     let line = Line::new(a.position.xy(), b.position.xy());
-                    match line.distance_to_point(point, self.caps) {
-                        crate::line::DistanceResult::OutOfBounds => continue,
+                    let w1 = a.width;
+                    let w2 = b.width;
+                    match line.distance_to_point(point) {
+                        crate::line::DistanceResult::Caps { t: _, d: _ } => continue,
                         crate::line::DistanceResult::Full { t, d } => {
-                            let w1 = a.width;
-                            let w2 = b.width;
                             let w = lerp(w1, w2, t);
 
                             if d <= w {
@@ -153,6 +184,6 @@ impl Drawable for Wire {
                 _ => (),
             }
         }
-        return Vector3::zeros();
+        Vector3::zeros()
     }
 }

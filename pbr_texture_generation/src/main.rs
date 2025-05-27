@@ -13,8 +13,6 @@ use noise::NoiseFn;
 use texture::*;
 use wire::{Wire, WireNode};
 
-use rand::{distr::Uniform, prelude::*};
-
 use rayon::prelude::*;
 
 #[derive(Default)]
@@ -61,6 +59,7 @@ fn apply_function(texture: &mut Texture, world: &World, f: fn(&mut Rgb<f32>, &Wo
         });
 }
 
+#[allow(unused)]
 fn height_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>) {
     let z = world
         .wires
@@ -76,6 +75,7 @@ fn height_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>
     *pixel = image::Rgb([v, v, v]);
 }
 
+#[allow(unused)]
 fn normal_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>) {
     let (i, _) = world
         .wires
@@ -89,15 +89,14 @@ fn normal_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>
     *pixel = image::Rgb([n.x, n.y, n.z]);
 }
 
+#[allow(unused)]
 fn generate_tissage(world: &mut World) {
     const COUNT_X: u32 = 20;
     const COUNT_Y: u32 = 20;
 
-    let mut rng = rand::rng();
-
     let perlin_x: noise::Perlin = noise::Perlin::new(1234);
     let perlin_y: noise::Perlin = noise::Perlin::new(1234 + 42);
-    let perlin_w: noise::Perlin = noise::Perlin::new(1234 + 69);
+    // let perlin_w: noise::Perlin = noise::Perlin::new(1234 + 69);
     let perlin_scale: f64 = 10.;
     let perlin_strength: f64 = 0.005;
 
@@ -135,7 +134,7 @@ fn generate_tissage(world: &mut World) {
                 ));
             }
         }
-        world.wires.push(Wire::new_from_nodes(nodes, false));
+        world.wires.push(Wire::new_from_nodes(nodes, true));
     }
 
     for y in 0..=COUNT_Y {
@@ -147,7 +146,7 @@ fn generate_tissage(world: &mut World) {
                 // scale_y/RES => micro_step length
                 let x_interm = i as f32 / (RES as f32);
                 let x_inter = x_base + x_interm * 2. * scale_y;
-                let w = 0.015;
+                // let w = 0.015;
 
                 let x_pos = x_inter;
                 let y_pos = y as f32 * scale_y;
@@ -173,8 +172,17 @@ fn generate_tissage(world: &mut World) {
                 ));
             }
         }
-        world.wires.push(Wire::new_from_nodes(nodes, false));
+        world.wires.push(Wire::new_from_nodes(nodes, true));
     }
+}
+
+fn generate_single_strand(world: &mut World) {
+    let mut nodes: Vec<WireNode> = vec![];
+    nodes.push(WireNode::new(Point3::new(0.5, 0.2, 0.01), 0.05));
+    nodes.push(WireNode::new(Point3::new(0.5, 0.5, 0.01), 0.05));
+    nodes.push(WireNode::new(Point3::new(0.8, 0.5, 0.01), 0.05));
+
+    world.wires.push(Wire::new_from_nodes(nodes, true));
 }
 
 fn main() {
@@ -196,6 +204,7 @@ fn main() {
     // ));
 
     generate_tissage(&mut world);
+    // generate_single_strand(&mut world);
 
     apply_function(&mut texture, &world, height_function);
     // apply_function(&mut texture, &world, normal_function);

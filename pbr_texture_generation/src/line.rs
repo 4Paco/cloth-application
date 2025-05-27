@@ -6,7 +6,7 @@ pub struct Line {
 }
 
 pub enum DistanceResult {
-    OutOfBounds,
+    Caps { t: f32, d: f32 },
     Full { t: f32, d: f32 },
 }
 
@@ -15,7 +15,7 @@ impl Line {
         Self { start, end }
     }
 
-    pub fn distance_to_point(&self, point: Point2<f32>, caps: bool) -> DistanceResult {
+    pub fn distance_to_point(&self, point: Point2<f32>) -> DistanceResult {
         let v_line: Vector2<f32> = self.end - self.start;
         let v_point: Vector2<f32> = point - self.start;
         let l2 = v_line.norm_squared();
@@ -25,13 +25,17 @@ impl Line {
                 d: v_point.norm(),
             };
         }
-        let t = v_line.dot(&v_point) / l2;
-        if !caps && (t < 0. || t > 1.) {
-            return DistanceResult::OutOfBounds;
+        let mut t = v_line.dot(&v_point) / l2;
+        let cap = t < 0. || t > 1.;
+        if cap {
+            t = clamp(t, 0., 1.);
         }
-        let t = clamp(t, 0., 1.);
         let projection = self.start + t * v_line;
         let d = (point - projection).norm();
-        DistanceResult::Full { t, d }
+        if cap {
+            DistanceResult::Caps { t, d }
+        } else {
+            DistanceResult::Full { t, d }
+        }
     }
 }

@@ -1,6 +1,6 @@
 use core::f32;
 
-use nalgebra::{Point2, Point3, Vector2, Vector3, clamp};
+use nalgebra::{Point2, Point3, Vector2, Vector3};
 
 use crate::{drawable::Drawable, line::Line};
 
@@ -42,8 +42,12 @@ impl Profile for CircleProfile {
         let v_top = Vector3::new(0., 0., 1.);
         let v_right = v_front.cross(&v_top).normalize();
 
-        return (x_normalized.sin() * v_right + x_normalized.cos() * v_top) * scale_angle.cos()
-            + scale_angle.sin() * v_front;
+        let x_normalized = f32::consts::PI * x_normalized;
+
+        return (scale_angle.cos() * v_top
+            + scale_angle.sin() * v_front
+            + x_normalized.sin() * v_right)
+            .normalize();
     }
 }
 
@@ -164,19 +168,74 @@ impl Drawable for Wire {
     }
 
     fn get_normal(&self, point: Point2<f32>) -> Vector3<f32> {
+        let mut best_cap_z: Option<f32> = None;
+        let mut best_hit_z: Option<f32> = None;
+        let mut best_cap_normal: Option<Vector3<f32>> = None;
+        let mut best_hit_normal: Option<Vector3<f32>> = None;
+
         for window in self.nodes.windows(2) {
             match &window {
                 &[a, b] => {
                     let line = Line::new(a.position.xy(), b.position.xy());
                     let w1 = a.width;
                     let w2 = b.width;
+
+                    let z1 = a.position.z;
+                    let z2 = b.position.z;
+
                     match line.distance_to_point(point) {
-                        crate::line::DistanceResult::Caps { t: _, d: _ } => continue,
-                        crate::line::DistanceResult::Full { t, d } => {
+                        crate::line::DistanceResult::Caps { t, d } => {
                             let w = lerp(w1, w2, t);
+                            let z = lerp(z1, z2, t);
+
+                            let v_line: Vector2<f32> = line.end - line.start;
+
+                            let v_front = Vector3::new(v_line.x, v_line.y, 0.).normalize();
+                            let v_top = Vector3::new(0., 0., 1.);
+                            let v_right = v_front.cross(&v_top).normalize();
+
+                            let s = v_right.xy().dot(&(point - line.start)).signum();
 
                             if d <= w {
-                                return self.profile.get_normal(&line, w1, w2, t, d / w);
+                                let new_normal =
+                                    self.profile.get_normal(&line, w1, w2, t, s * d / w);
+                                let new_z = z + w * self.profile.get_height(d / w);
+                                if let Some(old_best_cap_z) = best_cap_z {
+                                    if new_z > old_best_cap_z {
+                                        best_cap_z = Some(new_z);
+                                        best_cap_normal = Some(new_normal);
+                                    }
+                                } else {
+                                    best_cap_z = Some(new_z);
+                                    best_cap_normal = Some(new_normal);
+                                }
+                            }
+                        }
+                        crate::line::DistanceResult::Full { t, d } => {
+                            let w = lerp(w1, w2, t);
+                            let z = lerp(z1, z2, t);
+
+                            let v_line: Vector2<f32> = line.end - line.start;
+
+                            let v_front = Vector3::new(v_line.x, v_line.y, 0.).normalize();
+                            let v_top = Vector3::new(0., 0., 1.);
+                            let v_right = v_front.cross(&v_top).normalize();
+
+                            let s = v_right.xy().dot(&(point - line.start)).signum();
+
+                            if d <= w {
+                                let new_normal =
+                                    self.profile.get_normal(&line, w1, w2, t, s * d / w);
+                                let new_z = z + w * self.profile.get_height(d / w);
+                                if let Some(old_best_hit_z) = best_hit_z {
+                                    if new_z > old_best_hit_z {
+                                        best_hit_z = Some(new_z);
+                                        best_hit_normal = Some(new_normal);
+                                    }
+                                } else {
+                                    best_hit_z = Some(new_z);
+                                    best_hit_normal = Some(new_normal);
+                                }
                             }
                         }
                     }
@@ -184,6 +243,6 @@ impl Drawable for Wire {
                 _ => (),
             }
         }
-        Vector3::zeros()
+        best_hit_normal.unwrap_or(best_cap_normal.unwrap_or(Vector3::new(0., 0., 1.)))
     }
 }

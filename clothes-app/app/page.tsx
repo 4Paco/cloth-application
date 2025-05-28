@@ -3,6 +3,7 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TessellateModifier } from 'three/examples/jsm/Addons.js';
 
 const ThreeScene: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -12,7 +13,7 @@ const ThreeScene: React.FC = () => {
             const camera = new THREE.PerspectiveCamera(
                 75,
                 window.innerWidth / window.innerHeight,
-                0.1,
+                0.001,
                 1000
             );
             const renderer = new THREE.WebGLRenderer({ alpha: true });
@@ -21,22 +22,47 @@ const ThreeScene: React.FC = () => {
                 containerRef.current?.clientWidth ?? 0,
                 containerRef.current?.clientHeight ?? 0
             );
+            renderer.physicallyCorrectLights = true;
+
             containerRef.current?.appendChild(renderer.domElement);
             camera.position.z = 5;
 
-            const geometry = new THREE.BoxGeometry();
+            const scale = {x: 20, y: 20};
+
+            const albedo = new THREE.TextureLoader().load( "./blanc_BaseColor.png" );
+            albedo.wrapS = THREE.RepeatWrapping;
+            albedo.wrapT = THREE.RepeatWrapping;
+            albedo.repeat.set( scale.x, scale.y );
+
+            const normal = new THREE.TextureLoader().load( "./blanc_Normal.png" );
+            normal.wrapS = THREE.RepeatWrapping;
+            normal.wrapT = THREE.RepeatWrapping;
+            normal.repeat.set( scale.x, scale.y );
+            
+            const height = new THREE.TextureLoader().load( "./blanc_Height.png" );
+            height.wrapS = THREE.RepeatWrapping;
+            height.wrapT = THREE.RepeatWrapping;
+            height.repeat.set( scale.x, scale.y );
+
+            let geometry = new THREE.PlaneGeometry();
+            const tessellateModifier = new TessellateModifier(8, 2);
+            geometry = tessellateModifier.modify(geometry);
+
             const sphere_geometry = new THREE.SphereGeometry(0.7);
-            const material = new THREE.MeshPhysicalMaterial({ color: 0x00ff00 });
+            const material = new THREE.MeshStandardMaterial({ map: albedo, normalMap: normal, bumpMap: height });
             const sphere_material = new THREE.MeshPhysicalMaterial({ color: 0x0000ff });
             const cube = new THREE.Mesh(geometry, material);
             const sphere = new THREE.Mesh(sphere_geometry, sphere_material);
             const light = new THREE.AmbientLight(0x404040);
             const pointlight = new THREE.PointLight(0xffffff);
-            pointlight.position.y = 3;
+            const helper = new THREE.PointLightHelper(pointlight, 1);
+            pointlight.position.x = -3;
+            pointlight.position.z = 1;
             sphere.position.x = 1;
-            scene.add(sphere);
+            // scene.add(sphere);
             scene.add(cube);
             scene.add(light);
+            // scene.add(helper);
             scene.add(pointlight);
 
             const controls = new OrbitControls(camera, renderer.domElement);
@@ -45,16 +71,16 @@ const ThreeScene: React.FC = () => {
             renderer.render(scene, camera);
 
             // Add this function inside the useEffect hook
-            const renderScene = () => {
-                cube.rotation.x += 0.01;
-                cube.rotation.y += 0.01;
+            const renderScene = (t: number) => {
+                pointlight.position.x = Math.cos(0.0015*t);
+                pointlight.position.y = Math.cos(0.001*t);
                 controls.update();
                 renderer.render(scene, camera);
                 requestAnimationFrame(renderScene);
             };
 
             // Call the renderScene function to start the animation loop
-            renderScene();
+            renderScene(0);
 
             const handleResize = () => {
                 const width = window.innerWidth;

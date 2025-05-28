@@ -3,7 +3,7 @@ mod line;
 mod texture;
 mod wire;
 
-use std::f32;
+use std::{f32, path::Path};
 
 use drawable::Drawable;
 use image::{DynamicImage, Pixel, Rgb};
@@ -12,8 +12,6 @@ use nalgebra::*;
 use noise::NoiseFn;
 use texture::*;
 use wire::{Wire, WireNode};
-
-use rand::{distr::Uniform, prelude::*};
 
 use rayon::prelude::*;
 
@@ -61,6 +59,7 @@ fn apply_function(texture: &mut Texture, world: &World, f: fn(&mut Rgb<f32>, &Wo
         });
 }
 
+#[allow(unused)]
 fn height_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>) {
     let z = world
         .wires
@@ -76,6 +75,7 @@ fn height_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>
     *pixel = image::Rgb([v, v, v]);
 }
 
+#[allow(unused)]
 fn normal_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>) {
     let (i, _) = world
         .wires
@@ -89,15 +89,14 @@ fn normal_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>
     *pixel = image::Rgb([n.x, n.y, n.z]);
 }
 
+#[allow(unused)]
 fn generate_tissage(world: &mut World) {
     const COUNT_X: u32 = 20;
     const COUNT_Y: u32 = 20;
 
-    let mut rng = rand::rng();
-
     let perlin_x: noise::Perlin = noise::Perlin::new(1234);
     let perlin_y: noise::Perlin = noise::Perlin::new(1234 + 42);
-    let perlin_w: noise::Perlin = noise::Perlin::new(1234 + 69);
+    // let perlin_w: noise::Perlin = noise::Perlin::new(1234 + 69);
     let perlin_scale: f64 = 10.;
     let perlin_strength: f64 = 0.005;
 
@@ -135,7 +134,7 @@ fn generate_tissage(world: &mut World) {
                 ));
             }
         }
-        world.wires.push(Wire::new_from_nodes(nodes, false));
+        world.wires.push(Wire::new_from_nodes(nodes, true));
     }
 
     for y in 0..=COUNT_Y {
@@ -147,7 +146,7 @@ fn generate_tissage(world: &mut World) {
                 // scale_y/RES => micro_step length
                 let x_interm = i as f32 / (RES as f32);
                 let x_inter = x_base + x_interm * 2. * scale_y;
-                let w = 0.015;
+                // let w = 0.015;
 
                 let x_pos = x_inter;
                 let y_pos = y as f32 * scale_y;
@@ -173,38 +172,30 @@ fn generate_tissage(world: &mut World) {
                 ));
             }
         }
-        world.wires.push(Wire::new_from_nodes(nodes, false));
+        world.wires.push(Wire::new_from_nodes(nodes, true));
     }
 }
 
-fn main() {
-    let mut world = World::default();
-    let mut texture = Texture::new(1000, 1000, Vector2::new(1., 1.));
-    // world.wires.push(Wire::new(
-    //     Point3::new(0.5, 0., 0.),
-    //     Point3::new(0.5, 1., 0.),
-    //     0.1,
-    //     0.1,
-    //     false,
-    // ));
-    // world.wires.push(Wire::new(
-    //     Point3::new(0., 0.4, 0.05),
-    //     Point3::new(1., 0.4, 0.05),
-    //     0.05,
-    //     0.05,
-    //     false,
-    // ));
+#[allow(unused)]
+fn generate_single_strand(world: &mut World) {
+    let mut nodes: Vec<WireNode> = vec![];
+    nodes.push(WireNode::new(Point3::new(0.5, 0.2, 0.01), 0.05));
+    nodes.push(WireNode::new(Point3::new(0.5, 0.5, 0.01), 0.05));
+    nodes.push(WireNode::new(Point3::new(0.8, 0.5, 0.01), 0.05));
 
-    generate_tissage(&mut world);
+    world.wires.push(Wire::new_from_nodes(nodes, true));
+}
 
-    apply_function(&mut texture, &world, height_function);
-    // apply_function(&mut texture, &world, normal_function);
+#[allow(unused)]
+fn map_texture_range(texture: &mut Texture) {
+    texture
+        .image
+        .enumerate_pixels_mut()
+        .for_each(|(_, _, p)| p.apply(|c| (c + 1.) / 2.));
+}
 
-    // texture
-    //     .image
-    //     .enumerate_pixels_mut()
-    //     .for_each(|(_, _, p)| p.apply(|c| (c + 1.) / 2.));
-
+#[allow(unused)]
+fn map_texture_normalize(texture: &mut Texture) {
     let min = texture
         .image
         .enumerate_pixels()
@@ -224,8 +215,44 @@ fn main() {
         .image
         .enumerate_pixels_mut()
         .for_each(|(_, _, p)| p.apply(|c| (c - min) / (max - min)));
+}
 
-    // Save the image as “fractal.png”, the format is deduced from the path
+fn save_texture<P: AsRef<Path>>(texture: Texture, path: P) {
     let dynamic_image = DynamicImage::from(texture.image);
-    dynamic_image.into_rgb8().save("fractal.png").unwrap();
+    dynamic_image.into_rgb8().save(path).unwrap();
+}
+
+fn save_pbr(world: &mut World) {
+    // let mut albedo = Texture::new(1000, 1000, Vector2::new(1., 1.));
+    let height = Texture::new(1000, 1000, Vector2::new(1., 1.));
+    let normal = Texture::new(1000, 1000, Vector2::new(1., 1.));
+    // let mut roughness = Texture::new(1000, 1000, Vector2::new(1., 1.));
+    // let mut ambient_occlusion = Texture::new(1000, 1000, Vector2::new(1., 1.));
+
+    let textures: Vec<(
+        Texture,
+        fn(&mut Rgb<f32>, &World, Point2<f32>),
+        fn(&mut Texture),
+        &str,
+    )> = vec![
+        (height, height_function, map_texture_normalize, "height.png"),
+        (normal, normal_function, map_texture_range, "normal.png"),
+    ];
+
+    textures
+        .into_par_iter()
+        .for_each(|(mut texture, function, map_function, path)| {
+            apply_function(&mut texture, &world, function);
+            map_function(&mut texture);
+            save_texture(texture, path);
+        });
+}
+
+fn main() {
+    let mut world = World::default();
+
+    generate_tissage(&mut world);
+    // generate_single_strand(&mut world);
+
+    save_pbr(&mut world);
 }

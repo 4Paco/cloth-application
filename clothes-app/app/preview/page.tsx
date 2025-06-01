@@ -22,7 +22,6 @@ const ThreeScene: React.FC = () => {
                 containerRef.current?.clientWidth ?? 0,
                 containerRef.current?.clientHeight ?? 0
             );
-            renderer.physicallyCorrectLights = true;
 
             containerRef.current?.appendChild(renderer.domElement);
             camera.position.z = 5;

@@ -8,10 +8,11 @@ use std::{f32, path::Path};
 use drawable::Drawable;
 use image::{DynamicImage, Pixel, Rgb};
 use indicatif::ParallelProgressIterator;
+use itertools::Itertools;
 use nalgebra::*;
 use noise::NoiseFn;
 use texture::*;
-use wire::{Wire, WireNode};
+use wire::{Material, Wire, WireNode};
 
 use rayon::prelude::*;
 
@@ -76,6 +77,34 @@ fn height_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>
 }
 
 #[allow(unused)]
+fn alpha_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>) {
+    let z = world
+        .wires
+        .iter()
+        .map(|w| w.get_height(world_point))
+        .any(|d| d.is_finite());
+
+    let v = if z { 1. } else { 0. };
+
+    *pixel = image::Rgb([v, v, v]);
+}
+
+#[allow(unused)]
+fn albedo_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>) {
+    let max = world
+        .wires
+        .iter()
+        .map(|w| w.get_height(world_point))
+        .position_max_by(|x, y| x.partial_cmp(y).unwrap());
+    let a: Vector3<f32> = if let Some(i) = max {
+        world.wires[i].get_albedo(world_point)
+    } else {
+        Vector3::new(0., 0., 0.)
+    };
+    *pixel = image::Rgb([a.x, a.y, a.z]);
+}
+
+#[allow(unused)]
 fn normal_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>) {
     let (i, _) = world
         .wires
@@ -89,10 +118,20 @@ fn normal_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>
     *pixel = image::Rgb([n.x, n.y, n.z]);
 }
 
+struct SimpleColoredMaterial {
+    color: Vector3<f32>,
+}
+
+impl Material for SimpleColoredMaterial {
+    fn get_color(&self) -> Vector3<f32> {
+        self.color
+    }
+}
+
 #[allow(unused)]
 fn generate_tissage(world: &mut World) {
-    const COUNT_X: u32 = 20;
-    const COUNT_Y: u32 = 20;
+    const COUNT_X: u32 = 24;
+    const COUNT_Y: u32 = 24;
 
     let perlin_x: noise::Perlin = noise::Perlin::new(1234);
     let perlin_y: noise::Perlin = noise::Perlin::new(1234 + 42);
@@ -134,7 +173,14 @@ fn generate_tissage(world: &mut World) {
                 ));
             }
         }
-        world.wires.push(Wire::new_from_nodes(nodes, true));
+        let material = SimpleColoredMaterial {
+            color: Vector3::new(1., 0., 0.),
+        };
+        world.wires.push(Wire::new_from_nodes_with_material(
+            nodes,
+            true,
+            Box::new(material),
+        ));
     }
 
     for y in 0..=COUNT_Y {
@@ -172,7 +218,15 @@ fn generate_tissage(world: &mut World) {
                 ));
             }
         }
-        world.wires.push(Wire::new_from_nodes(nodes, true));
+        let material = SimpleColoredMaterial {
+            color: Vector3::new(1., 0., 0.),
+        };
+
+        world.wires.push(Wire::new_from_nodes_with_material(
+            nodes,
+            true,
+            Box::new(material),
+        ));
     }
 }
 
@@ -223,27 +277,49 @@ fn save_texture<P: AsRef<Path>>(texture: Texture, path: P) {
 }
 
 fn save_pbr(world: &mut World) {
-    // let mut albedo = Texture::new(1000, 1000, Vector2::new(1., 1.));
-    let height = Texture::new(1000, 1000, Vector2::new(1., 1.));
-    let normal = Texture::new(1000, 1000, Vector2::new(1., 1.));
+    let texture_size = Vector2::new(1000, 1000);
+    let extent = Vector2::new(1., 1.);
+    let albedo = Texture::new(1000, 1000, Vector2::new(1., 1.));
+    let height = Texture::new(texture_size.x, texture_size.y, extent);
+    let normal = Texture::new(texture_size.x, texture_size.y, extent);
+    let alpha = Texture::new(texture_size.x, texture_size.y, extent);
     // let mut roughness = Texture::new(1000, 1000, Vector2::new(1., 1.));
     // let mut ambient_occlusion = Texture::new(1000, 1000, Vector2::new(1., 1.));
 
     let textures: Vec<(
         Texture,
         fn(&mut Rgb<f32>, &World, Point2<f32>),
-        fn(&mut Texture),
+        Option<fn(&mut Texture)>,
         &str,
     )> = vec![
-        (height, height_function, map_texture_normalize, "height.png"),
-        (normal, normal_function, map_texture_range, "normal.png"),
+        (albedo, albedo_function, None, "albedo.png"),
+        (
+            height,
+            height_function,
+            Some(map_texture_normalize),
+            "height.png",
+        ),
+        (
+            normal,
+            normal_function,
+            Some(map_texture_range),
+            "normal.png",
+        ),
+        (
+            alpha,
+            alpha_function,
+            Some(map_texture_normalize),
+            "alpha.png",
+        ),
     ];
 
     textures
         .into_par_iter()
-        .for_each(|(mut texture, function, map_function, path)| {
+        .for_each(|(mut texture, function, optional_map_function, path)| {
             apply_function(&mut texture, &world, function);
-            map_function(&mut texture);
+            if let Some(map_function) = optional_map_function {
+                map_function(&mut texture);
+            }
             save_texture(texture, path);
         });
 }

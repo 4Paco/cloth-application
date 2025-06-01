@@ -9,11 +9,17 @@ pub struct WireNode {
     pub width: f32,
 }
 
-pub trait Material: Sync + Send {}
+pub trait Material: Sync + Send {
+    fn get_color(&self) -> Vector3<f32>;
+}
 
 struct RopeMaterial;
 
-impl Material for RopeMaterial {}
+impl Material for RopeMaterial {
+    fn get_color(&self) -> Vector3<f32> {
+        Vector3::new(0., 0., 0.)
+    }
+}
 
 pub trait Profile: Sync + Send {
     fn get_height(&self, x_normalized: f32) -> f32;
@@ -90,6 +96,19 @@ impl Wire {
         Self {
             nodes,
             material: Box::new(RopeMaterial),
+            profile: Box::new(CircleProfile),
+            caps,
+        }
+    }
+
+    pub fn new_from_nodes_with_material(
+        nodes: Vec<WireNode>,
+        caps: bool,
+        material: Box<dyn Material>,
+    ) -> Self {
+        Self {
+            nodes,
+            material,
             profile: Box::new(CircleProfile),
             caps,
         }
@@ -244,5 +263,83 @@ impl Drawable for Wire {
             }
         }
         best_hit_normal.unwrap_or(best_cap_normal.unwrap_or(Vector3::new(0., 0., 1.)))
+    }
+
+    fn get_albedo(&self, point: Point2<f32>) -> Vector3<f32> {
+        let mut best_cap_z: Option<f32> = None;
+        let mut best_hit_z: Option<f32> = None;
+        let mut best_cap_normal: Option<Vector3<f32>> = None;
+        let mut best_hit_normal: Option<Vector3<f32>> = None;
+
+        for window in self.nodes.windows(2) {
+            match &window {
+                &[a, b] => {
+                    let line = Line::new(a.position.xy(), b.position.xy());
+                    let wm = a.width.max(b.width);
+
+                    let minimum = Vector2::new(
+                        a.position.x.min(b.position.x) - wm,
+                        a.position.y.min(b.position.y) - wm,
+                    );
+                    let maximum = Vector2::new(
+                        a.position.x.max(b.position.x) + wm,
+                        a.position.y.max(b.position.y) + wm,
+                    );
+                    if point.x < minimum.x
+                        || point.x > maximum.x
+                        || point.y < minimum.y
+                        || point.y > maximum.y
+                    {
+                        continue;
+                    }
+
+                    let w1 = a.width;
+                    let w2 = b.width;
+                    let z1 = a.position.z;
+                    let z2 = b.position.z;
+
+                    match line.distance_to_point(point) {
+                        crate::line::DistanceResult::Caps { t, d } => {
+                            let w = lerp(w1, w2, t);
+                            let z = lerp(z1, z2, t);
+
+                            if d <= w {
+                                let new_normal = self.material.get_color();
+                                let new_z = z + w * self.profile.get_height(d / w);
+                                if let Some(old_best_cap_z) = best_cap_z {
+                                    if new_z > old_best_cap_z {
+                                        best_cap_z = Some(new_z);
+                                        best_cap_normal = Some(new_normal);
+                                    }
+                                } else {
+                                    best_cap_z = Some(new_z);
+                                    best_cap_normal = Some(new_normal);
+                                }
+                            }
+                        }
+                        crate::line::DistanceResult::Full { t, d } => {
+                            let w = lerp(w1, w2, t);
+                            let z = lerp(z1, z2, t);
+
+                            if d <= w {
+                                let new_normal = self.material.get_color();
+                                let new_z = z + w * self.profile.get_height(d / w);
+                                if let Some(old_best_hit_z) = best_hit_z {
+                                    if new_z > old_best_hit_z {
+                                        best_hit_z = Some(new_z);
+                                        best_hit_normal = Some(new_normal);
+                                    }
+                                } else {
+                                    best_hit_z = Some(new_z);
+                                    best_hit_normal = Some(new_normal);
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        best_hit_normal.unwrap_or(best_cap_normal.unwrap_or(Vector3::new(0., 0., 0.)))
     }
 }

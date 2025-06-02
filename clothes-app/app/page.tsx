@@ -31,13 +31,15 @@ const ThreeScene: React.FC = () => {
             const cube = new THREE.Mesh(geometry, material);
             const sphere = new THREE.Mesh(sphere_geometry, sphere_material);
             const light = new THREE.AmbientLight(0x404040);
-            const pointlight = new THREE.PointLight(0xffffff);
+            const pointlight = new THREE.PointLight(0xffffff, 20);
             pointlight.position.y = 3;
             sphere.position.x = 1;
             scene.add(sphere);
             scene.add(cube);
             scene.add(light);
             scene.add(pointlight);
+            const pointLightHelper = new THREE.PointLightHelper(pointlight, 0.2, 0xff0000); // red helper
+            scene.add(pointLightHelper);
 
             const controls = new OrbitControls(camera, renderer.domElement);
 

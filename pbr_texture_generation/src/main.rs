@@ -174,7 +174,7 @@ fn generate_tissage(world: &mut World) {
             }
         }
         let material = SimpleColoredMaterial {
-            color: Vector3::new(1., 0., 0.),
+            color: Vector3::new(0.8, 0.8, 0.8),
         };
         world.wires.push(Wire::new_from_nodes_with_material(
             nodes,
@@ -219,7 +219,7 @@ fn generate_tissage(world: &mut World) {
             }
         }
         let material = SimpleColoredMaterial {
-            color: Vector3::new(1., 0., 0.),
+            color: Vector3::new(0.8, 0.8, 0.8),
         };
 
         world.wires.push(Wire::new_from_nodes_with_material(

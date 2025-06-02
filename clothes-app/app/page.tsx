@@ -3,6 +3,7 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+let isLightSelected = false;
 
 const ThreeScene: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -41,6 +42,38 @@ const ThreeScene: React.FC = () => {
             const pointLightHelper = new THREE.PointLightHelper(pointlight, 0.2, 0xff0000); // red helper
             scene.add(pointLightHelper);
 
+            // Add raycaster and mouse logic here 
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            function onClick(event: MouseEvent) {
+                if (!renderer.domElement) return;
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+
+                if (!isLightSelected) {
+                    // First click: check if the helper was clicked
+                    const intersects = raycaster.intersectObject(pointLightHelper, true);
+                    if (intersects.length > 0) {
+                        isLightSelected = true;
+                    }
+                } else {
+                    // Second click: move the light to the clicked position on a plane (e.g., z=0)
+                    // We'll use a plane at z=0 for demonstration
+                    const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+                    const intersection = new THREE.Vector3();
+                    raycaster.ray.intersectPlane(planeZ, intersection);
+                    pointlight.position.copy(intersection);
+                    pointLightHelper.update();
+                    isLightSelected = false;
+                }
+            }
+
+            renderer.domElement.addEventListener('click', onClick);
+
             const controls = new OrbitControls(camera, renderer.domElement);
 
             // Render the scene and camera
@@ -74,6 +107,7 @@ const ThreeScene: React.FC = () => {
             return () => {
                 window.removeEventListener('resize', handleResize);
             };
+            
         }
     }, []);
     return <div className="flex-1" ref={containerRef} />;

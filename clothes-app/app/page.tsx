@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -77,10 +77,43 @@ const ThreeScene: React.FC = () => {
     return <div className="flex-1" ref={containerRef} />;
 };
 
+function CIEButton() {
+    return (
+        <>
+            <button
+                className="mr-4 h-fit self-end bg-amber-500 p-2 rounded-2xl"
+                onClick={() => {
+                    window.location.href = '/CIE';
+                }}
+            >
+                Go to CIE
+            </button>
+        </>
+    );
+}
+
+function LogInButton() {
+    return (
+        <>
+            <button
+                className="mr-4 h-fit self-end bg-amber-500 p-2 rounded-2xl"
+                onClick={() => {
+                    window.location.href = '/login';
+                }}
+            >
+                Go to LogIn
+            </button>
+        </>
+    );
+}
+
 export default function Home() {
     return (
         <div className="h-dvh flex flex-col">
             <div>Hello, world!</div>
+            <CIEButton />
+            <b></b>
+            <LogInButton />
             <ThreeScene />
         </div>
     );

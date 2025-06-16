@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@react-three/drei": "^10.1.2",
+    "@react-three/fiber": "^9.1.2",
+    "@uiw/react-color-wheel": "^2.5.5"
+  }
+}

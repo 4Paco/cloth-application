@@ -12,6 +12,7 @@ export default function ResetPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
   const router = useRouter();
 
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 

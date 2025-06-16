@@ -42,8 +42,6 @@ function labToRgb(L: number, a: number, b: number) {
     );
 }
 
-const suggestedColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
-
 const CIESphere = () => {
     const [selectedColor, setSelectedColor] = useState<THREE.Color | null>(null);
     const [selectedSize, setSelectedSize] = useState(0.035);
@@ -69,6 +67,15 @@ const CIESphere = () => {
         return spheres;
     }, []);
 
+    const suggestedColors = [
+        points[1147].color,
+        points[242].color,
+        points[40].color,
+        points[198].color,
+        points[960].color,
+        points[209].color,
+    ];
+
     return (
         <div style={{ display: 'flex', height: '100vh', color: 'white', fontFamily: 'sans-serif' }}>
             <div style={{ width: '200px', background: '#111', padding: '1rem' }}>
@@ -76,9 +83,12 @@ const CIESphere = () => {
                 {suggestedColors.map((hex, i) => (
                     <div
                         key={i}
-                        onClick={() => setSelectedColor(new THREE.Color(hex))}
+                        onClick={() => {
+                            setSelectedColor(hex);
+                            console.log(new THREE.Color(hex));
+                        }}
                         style={{
-                            background: hex,
+                            background: hex.getStyle(),
                             height: '30px',
                             width: '100%',
                             marginBottom: '10px',
@@ -115,7 +125,10 @@ const CIESphere = () => {
                     <mesh
                         key={idx}
                         position={point.position}
-                        onPointerDown={() => setSelectedColor(point.color)}
+                        onPointerDown={() => {
+                            setSelectedColor(point.color);
+                            console.log('idx :', idx);
+                        }}
                     >
                         <sphereGeometry
                             args={[selectedColor === point.color ? selectedSize : 0.015, 6, 6]}

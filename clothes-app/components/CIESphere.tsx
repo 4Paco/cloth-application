@@ -46,7 +46,7 @@ const suggestedColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', 
 
 const CIESphere = () => {
     const [selectedColor, setSelectedColor] = useState<THREE.Color | null>(null);
-    const [selectedSize, setSelectedSize] = useState(0.015);
+    const [selectedSize, setSelectedSize] = useState(0.035);
 
     const points = useMemo(() => {
         const spheres: { position: [number, number, number]; color: THREE.Color }[] = [];

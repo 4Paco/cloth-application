@@ -1,120 +1,64 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { Button } from '@/components/ui/button';
 
-const ThreeScene: React.FC = () => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(
-                75,
-                window.innerWidth / window.innerHeight,
-                0.1,
-                1000
-            );
-            const renderer = new THREE.WebGLRenderer({ alpha: true });
-            // renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setSize(
-                containerRef.current?.clientWidth ?? 0,
-                containerRef.current?.clientHeight ?? 0
-            );
-            containerRef.current?.appendChild(renderer.domElement);
-            camera.position.z = 5;
-
-            const geometry = new THREE.BoxGeometry();
-            const sphere_geometry = new THREE.SphereGeometry(0.7);
-            const material = new THREE.MeshPhysicalMaterial({ color: 0x00ff00 });
-            const sphere_material = new THREE.MeshPhysicalMaterial({ color: 0x0000ff });
-            const cube = new THREE.Mesh(geometry, material);
-            const sphere = new THREE.Mesh(sphere_geometry, sphere_material);
-            const light = new THREE.AmbientLight(0x404040);
-            const pointlight = new THREE.PointLight(0xffffff);
-            pointlight.position.y = 3;
-            sphere.position.x = 1;
-            scene.add(sphere);
-            scene.add(cube);
-            scene.add(light);
-            scene.add(pointlight);
-
-            const controls = new OrbitControls(camera, renderer.domElement);
-
-            // Render the scene and camera
-            renderer.render(scene, camera);
-
-            // Add this function inside the useEffect hook
-            const renderScene = () => {
-                cube.rotation.x += 0.01;
-                cube.rotation.y += 0.01;
-                controls.update();
-                renderer.render(scene, camera);
-                requestAnimationFrame(renderScene);
-            };
-
-            // Call the renderScene function to start the animation loop
-            renderScene();
-
-            const handleResize = () => {
-                const width = window.innerWidth;
-                const height = window.innerHeight;
-
-                camera.aspect = width / height;
-                camera.updateProjectionMatrix();
-
-                renderer.setSize(width, height);
-            };
-
-            window.addEventListener('resize', handleResize);
-
-            // Clean up the event listener when the component is unmounted
-            return () => {
-                window.removeEventListener('resize', handleResize);
-            };
-        }
-    }, []);
-    return <div className="flex-1" ref={containerRef} />;
-};
-
-function CIEButton() {
-    return (
-        <>
-            <button
-                className="mr-4 h-fit self-end bg-amber-500 p-2 rounded-2xl"
-                onClick={() => {
-                    window.location.href = '/CIE';
-                }}
-            >
-                Go to CIE
-            </button>
-        </>
-    );
-}
-
-function LogInButton() {
-    return (
-        <>
-            <button
-                className="mr-4 h-fit self-end bg-amber-500 p-2 rounded-2xl"
-                onClick={() => {
-                    window.location.href = '/login';
-                }}
-            >
-                Go to LogIn
-            </button>
-        </>
-    );
-}
-
-export default function Home() {
-    return (
-        <div className="h-dvh flex flex-col">
-            <div>Hello, world!</div>
-            <CIEButton />
-            <b></b>
-            <LogInButton />
-            <ThreeScene />
+export default function HomePage() {
+  const router = useRouter();
+  const handleStartNow = () => {
+    router.push('/login'); // Redirection vers la page de connexion
+  };
+  const handleExplorePalettes = () => {
+    router.push('/palettes'); // Redirection vers la page des palettes
+  };
+  return (
+    <div className="min-h-screen bg-black text-white px-6 py-12 md:py-20">
+      <div className="max-w-5xl mx-auto text-center space-y-8">
+        <h1 className="text-4xl md:text-6xl font-bold leading-tight">
+          Créez la combinaison parfaite de couleurs <br />
+          pour vos tissus et textures
+        </h1>
+        <p className="text-lg text-gray-400 max-w-2xl mx-auto">
+          Une plateforme pensée pour les designers textile et surface designers. 
+          Inspirez-vous, testez des palettes et trouvez les harmonies qui vous correspondent.
+        </p>
+        <div className="flex justify-center gap-4">
+          <Button size="lg" className="bg-white text-black hover:bg-gray-200" onClick={handleStartNow}>
+            Démarrer maintenant
+          </Button>
+          <Button size="lg" className="bg-white text-black hover:bg-gray-200" onClick={handleExplorePalettes}>
+            Explorer les palettes
+          </Button>
         </div>
-    );
+      </div>
+
+      <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        {[
+          { title: 'Toile minimaliste', src: '/samples/sample1.jpg' },
+          { title: 'Motif floral moderne', src: '/samples/sample2.jpg' },
+          { title: 'Tissu à motifs géométriques', src: '/samples/sample3.jpg' },
+        ].map(({ title, src }) => (
+          <div key={src} className="rounded-2xl overflow-hidden bg-zinc-900 shadow-md group">
+            <div className="relative h-64">
+              <Image
+                src={src}
+                alt={title}
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            </div>
+            <div className="px-4 py-3">
+              <h3 className="font-semibold text-lg text-white">{title}</h3>
+              <p className="text-sm text-gray-400">Exemple de palette appliquée</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-20 text-center text-gray-500 text-sm">
+        © {new Date().getFullYear()} ColorTextile — conçu pour les artistes et les créateurs visuels.
+      </div>
+    </div>
+  );
 }

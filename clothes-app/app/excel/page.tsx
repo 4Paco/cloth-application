@@ -10,7 +10,7 @@ export default function ExcelTest() {
 
   const handleTestStaticCSV = async () => {
     try {
-      const res = await fetch("data_dyes.csv");
+      const res = await fetch("./dataset/data_dyes.csv");
       const csvText = await res.text();
       const parsed = parseCSVText(csvText);
 
@@ -25,8 +25,11 @@ export default function ExcelTest() {
   const [clicked, setClicked] = useState(false);
 
   return (
-    <button
-      onClick={() => handleTestStaticCSV()}
+    <button className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+      onClick={() => handleTestStaticCSV()
+      
+      }
+    
     >
       Load
     </button>
@@ -34,7 +37,7 @@ export default function ExcelTest() {
 };
 
   return (
-    <div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
       <h2>Test Static CSV File</h2>
       <ColorButton />
       {parsedData && (

@@ -44,8 +44,9 @@ function labToRgb(L: number, a: number, b: number) {
 
 const CIESphere = () => {
     const [selectedColor, setSelectedColor] = useState<THREE.Color | null>(null);
-    const [selectedSize, setSelectedSize] = useState(0.035);
+    const [selectedSize, setSelectedSize] = useState(0.085);
     const [selectedPosition, setSelectedPosition] = useState<THREE.Vector3 | null>(null);
+    const [colorValidated, setColorValidated] = useState(false);
     const [tolerance, setTolerance] = useState(0.1);
 
     const points = useMemo(() => {
@@ -68,6 +69,43 @@ const CIESphere = () => {
         }
         return spheres;
     }, []);
+
+    interface ColorEntry {
+        id: number;
+        hours: number;
+        L: number;
+        a: number;
+        b: number;
+        E: number;
+    }
+    const tableau_test: ColorEntry[] = [
+        { id: 1, hours: 10, L: 50, a: -20, b: 30, E: 2.5 },
+        { id: 1, hours: 20, L: 50, a: -20, b: 30, E: 2.5 },
+        { id: 1, hours: 30, L: 50, a: -20, b: 30, E: 2.5 },
+        { id: 1, hours: 40, L: 50, a: -20, b: 30, E: 2.5 },
+        { id: 1, hours: 0, L: 50, a: -20, b: 30, E: 2.5 },
+        { id: 2, hours: 20, L: 60, a: 10, b: -15, E: 3.1 },
+        { id: 3, hours: 15, L: 45, a: 25, b: -10, E: 1.8 },
+        { id: 4, hours: 30, L: 70, a: -5, b: 20, E: 2.9 },
+        { id: 5, hours: 25, L: 55, a: 15, b: -25, E: 3.4 },
+    ];
+
+    const getColorantWithinTolerance = () => {
+        if (!selectedPosition) return [];
+
+        return tableau_test.filter((colorant) => {
+            if (colorant.hours == 0) {
+                const position = [colorant.a / 100, colorant.b / 100, (colorant.L - 50) / 100];
+                const distance = new THREE.Vector3(...position).distanceTo(
+                    new THREE.Vector3(...selectedPosition)
+                );
+                if (distance <= tolerance) {
+                }
+            }
+        });
+    };
+
+    const colorantWithinTolerance = getColorantWithinTolerance();
 
     const getPointsWithinTolerance = () => {
         if (!selectedPosition) return [];
@@ -98,13 +136,14 @@ const CIESphere = () => {
                     <div
                         key={i}
                         onClick={() => {
-                            setSelectedColor(hex);
-                            points.forEach((point) => {
-                                if (selectedColor === point.color) {
-                                    setSelectedPosition(new THREE.Vector3(...point.position));
-                                }
-                            });
-                            //console.log(new THREE.Color(hex));
+                            if (!colorValidated) {
+                                setSelectedColor(hex);
+                                points.forEach((point) => {
+                                    if (selectedColor === point.color) {
+                                        setSelectedPosition(new THREE.Vector3(...point.position));
+                                    }
+                                });
+                            }
                         }}
                         style={{
                             background: hex.getStyle(),
@@ -147,8 +186,37 @@ const CIESphere = () => {
                         />
                     </>
                 )}
+                {selectedColor && !colorValidated && (
+                    <>
+                        <input
+                            type="Button"
+                            //title="Validate selection"
+                            defaultValue="Validate selection"
+                            onClick={(e) => {
+                                setColorValidated(true), console.log(colorValidated);
+                            }}
+                            style={{ width: '100%', background: 'dimgrey' }}
+                        />
+                    </>
+                )}
+                {colorValidated && (
+                    <>
+                        <br />
+                        <br />
+                        <input
+                            type="Button"
+                            //title="Change selection"
+                            defaultValue="Change selection"
+                            onClick={(e) => {
+                                setColorValidated(false), console.log(colorValidated);
+                            }}
+                            style={{ width: '100%', background: 'dimgrey' }}
+                        />
+                    </>
+                )}
             </div>
             <Canvas
+                id="canvas"
                 style={{ background: 'black', flex: 1 }}
                 camera={{ position: [0, 0, 3], fov: 75 }}
             >
@@ -159,9 +227,10 @@ const CIESphere = () => {
                         key={idx}
                         position={point.position}
                         onPointerDown={() => {
-                            setSelectedColor(point.color);
-                            setSelectedPosition(new THREE.Vector3(...point.position));
-                            console.log('idx :', idx);
+                            if (!colorValidated) {
+                                setSelectedColor(point.color);
+                                setSelectedPosition(new THREE.Vector3(...point.position));
+                            }
                         }}
                     >
                         <sphereGeometry
@@ -170,6 +239,8 @@ const CIESphere = () => {
                                     ? selectedSize
                                     : pointsWithinTolerance.includes(point)
                                     ? selectedSize * 0.7
+                                    : colorValidated
+                                    ? 0
                                     : 0.015,
                                 6,
                                 6,

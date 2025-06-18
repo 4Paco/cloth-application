@@ -175,14 +175,26 @@ fn generate_tissage(world: &mut World) {
                     );
                 let w = perlin_x.get([perlin_scale * x_pos as f64, perlin_scale * y_pos as f64]);
                 let w = 0.015 + 0.001 * w as f32;
-                let mut node_index: usize = (x as usize % 2) * 24 + x as usize + y as usize * 24;
-                // let mut node_index: usize =
-                //     24 * (y % 24) as usize + (x % 2) as usize + 2 * (x % 24) as usize;
+                let mut node_index: usize = ((x % COUNT_X)
+                    + ((x % COUNT_X) % 2) * COUNT_X
+                    + (y % (COUNT_Y / 2)) * COUNT_X * 2)
+                    as usize;
                 if x % 2 == 0 {
                     if i > RES / 2 {
-                        node_index = (x as usize % 2) * 24 + x as usize + (y + 1) as usize * 24;
+                        node_index = ((x % COUNT_X)
+                            + ((x % COUNT_X) % 2) * COUNT_X
+                            + ((y + 1) % (COUNT_Y / 2)) * COUNT_X * 2)
+                            as usize;
                     }
                 }
+                // let mut node_index: usize = (x as usize % 2) * 24 + x as usize + y as usize * 24;
+                // let mut node_index: usize =
+                //     24 * (y % 24) as usize + (x % 2) as usize + 2 * (x % 24) as usize;
+                // if x % 2 == 0 {
+                //     if i > RES / 2 {
+                //         node_index = (x as usize % 2) * 24 + x as usize + (y + 1) as usize * 24;
+                //     }
+                // }
                 // let mut node_index: usize =
                 //     48 * (y % 24) as usize + ((y % 24) as usize % 2) + 2 * (x % 24) as usize;
                 // if x % 2 == 0 {
@@ -242,18 +254,27 @@ fn generate_tissage(world: &mut World) {
                 // let node_index: usize = 2 * (24 * 2 * y as usize + x as usize);
                 // let mut node_index: usize =
                 //     24 * (y % 24) as usize + 24 * ((x + 1) % 2) as usize + 2 * (x % 24) as usize;
-                let mut node_index: usize =
-                    (y as usize + 1) % 2 + 2 * (x as usize % 24) + 24 * (y as usize % 24);
+                let mut node_index: usize = ((x % (COUNT_X / 2)) * 2
+                    + (y % COUNT_Y) * COUNT_X
+                    + ((y % COUNT_Y) + 1) % 2) as usize;
                 if y % 2 == 1 {
                     if i > RES / 2 {
-                        node_index = (y as usize + 1) % 2
-                            + 2 * ((x + 1) as usize % 24)
-                            + 24 * (y as usize % 24);
-                        // node_index = 24 * (y % 24) as usize
-                        //     + 24 * (x % 2) as usize
-                        //     + 2 * ((x + 1) % 24) as usize;
+                        node_index = (((x + 1) % (COUNT_X / 2)) * 2
+                            + (y % COUNT_Y) * COUNT_X
+                            + ((y % COUNT_Y) + 1) % 2)
+                            as usize;
                     }
                 }
+                // if y % 2 == 1 {
+                //     if i > RES / 2 {
+                //         node_index = (y as usize + 1) % 2
+                //             + 2 * ((x + 1) as usize % 24)
+                //             + 24 * (y as usize % 24);
+                //         // node_index = 24 * (y % 24) as usize
+                //         //     + 24 * (x % 2) as usize
+                //         //     + 2 * ((x + 1) % 24) as usize;
+                //     }
+                // }
                 // let mut node_index: usize =
                 //     48 * (y % 24) as usize + (((y % 24) as usize + 1) % 2) + 2 * (x % 24) as usize;
                 // if y % 2 == 1 {

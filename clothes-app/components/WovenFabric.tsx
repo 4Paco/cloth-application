@@ -3,8 +3,16 @@ import { useRef } from "react";
 import { useFrame, useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 
-export function WovenFabric({ texture }: { texture: THREE.Texture }) {
+type WovenFabricProps = {
+  texture: THREE.Texture;
+  hours: number;
+};
+
+
+export function WovenFabric({ texture, hours }: WovenFabricProps) {
   const ref = useRef<THREE.Mesh>(null);
+  const fadeFactor = Math.min(hours / 570, 1); // Normalize from 0 to 1
+
 
   return (
     <mesh ref={ref} rotation={[0, 0, 0]} position={[0, 0, 0]}>

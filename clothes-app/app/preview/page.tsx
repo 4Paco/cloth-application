@@ -146,12 +146,12 @@ const ThreeScene: React.FC = () => {
                             const pixel_index = get_index(indexed_x, indexed_y, pixels_cvs.width);
                             const base_color_index = get_index(x, y);
 
-                            const r = 0;
-                            const g = 255 * (indexed_y / 24);
-                            const b = 0;
-                            // const r = pixels_image_data.data[pixel_index + 0];
-                            // const g = pixels_image_data.data[pixel_index + 1];
-                            // const b = pixels_image_data.data[pixel_index + 2];
+                            // const r = 255 * (indexed_x / 24);
+                            // const g = 255 * (indexed_y / 24);
+                            // const b = 0;
+                            const r = pixels_image_data.data[pixel_index + 0];
+                            const g = pixels_image_data.data[pixel_index + 1];
+                            const b = pixels_image_data.data[pixel_index + 2];
                             // const r =
                             //     pixels_image_data.data[pixel_index + 0] *
                             //     base_color_image_data.data[base_color_index + 0];
@@ -184,18 +184,18 @@ const ThreeScene: React.FC = () => {
                 const sphere_material = new THREE.MeshPhysicalMaterial({ color: 0x0000ff });
                 const cube = new THREE.Mesh(geometry, material);
                 const sphere = new THREE.Mesh(sphere_geometry, sphere_material);
-                const light = new THREE.AmbientLight(0xffffff);
-                // const pointlight = new THREE.PointLight(0xffffff);
+                const light = new THREE.AmbientLight(0xaaaaaa);
+                const pointlight = new THREE.PointLight(0xffffff);
 
-                // pointlight.position.x = -3;
-                // pointlight.position.z = 1;
+                pointlight.position.x = -3;
+                pointlight.position.z = 1;
                 sphere.position.x = 1;
                 // scene.add(sphere);
                 scene.add(cube);
                 scene.add(light);
-                // scene.add(pointlight);
-                // const pointLightHelper = new THREE.PointLightHelper(pointlight, 0.2, 0xff0000); // red helper
-                // scene.add(pointLightHelper);
+                scene.add(pointlight);
+                const pointLightHelper = new THREE.PointLightHelper(pointlight, 0.2, 0xff0000); // red helper
+                scene.add(pointLightHelper);
 
                 // Add raycaster and mouse logic here
                 const raycaster = new THREE.Raycaster();
@@ -236,8 +236,8 @@ const ThreeScene: React.FC = () => {
 
                 // Add this function inside the useEffect hook
                 const renderScene = (t: number) => {
-                    // pointlight.position.x = Math.cos(0.0015 * t);
-                    // pointlight.position.y = Math.cos(0.001 * t);
+                    pointlight.position.x = Math.cos(0.0015 * t);
+                    pointlight.position.y = Math.cos(0.001 * t);
                     controls.update();
                     renderer.render(scene, camera);
                     requestAnimationFrame(renderScene);

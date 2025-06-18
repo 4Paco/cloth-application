@@ -45,6 +45,8 @@ function labToRgb(L: number, a: number, b: number) {
 const CIESphere = () => {
     const [selectedColor, setSelectedColor] = useState<THREE.Color | null>(null);
     const [selectedSize, setSelectedSize] = useState(0.035);
+    const [selectedPosition, setSelectedPosition] = useState<THREE.Vector3 | null>(null);
+    const [tolerance, setTolerance] = useState(0.1);
 
     const points = useMemo(() => {
         const spheres: { position: [number, number, number]; color: THREE.Color }[] = [];
@@ -67,6 +69,18 @@ const CIESphere = () => {
         return spheres;
     }, []);
 
+    const getPointsWithinTolerance = () => {
+        if (!selectedPosition) return [];
+        return points.filter((point) => {
+            const distance = new THREE.Vector3(...point.position).distanceTo(
+                new THREE.Vector3(...selectedPosition)
+            );
+            return distance <= tolerance;
+        });
+    };
+
+    const pointsWithinTolerance = getPointsWithinTolerance();
+
     const suggestedColors = [
         points[1147].color,
         points[242].color,
@@ -85,7 +99,12 @@ const CIESphere = () => {
                         key={i}
                         onClick={() => {
                             setSelectedColor(hex);
-                            console.log(new THREE.Color(hex));
+                            points.forEach((point) => {
+                                if (selectedColor === point.color) {
+                                    setSelectedPosition(new THREE.Vector3(...point.position));
+                                }
+                            });
+                            //console.log(new THREE.Color(hex));
                         }}
                         style={{
                             background: hex.getStyle(),
@@ -114,6 +133,20 @@ const CIESphere = () => {
                         />
                     </>
                 )}
+                {selectedColor && (
+                    <>
+                        <label>Selection Tolerance</label>
+                        <input
+                            type="range"
+                            min={0.01}
+                            max={0.3}
+                            step={0.005}
+                            value={tolerance}
+                            onChange={(e) => setTolerance(parseFloat(e.target.value))}
+                            style={{ width: '100%' }}
+                        />
+                    </>
+                )}
             </div>
             <Canvas
                 style={{ background: 'black', flex: 1 }}
@@ -127,16 +160,45 @@ const CIESphere = () => {
                         position={point.position}
                         onPointerDown={() => {
                             setSelectedColor(point.color);
+                            setSelectedPosition(new THREE.Vector3(...point.position));
                             console.log('idx :', idx);
                         }}
                     >
                         <sphereGeometry
-                            args={[selectedColor === point.color ? selectedSize : 0.015, 6, 6]}
+                            args={[
+                                selectedColor === point.color
+                                    ? selectedSize
+                                    : pointsWithinTolerance.includes(point)
+                                    ? selectedSize * 0.7
+                                    : 0.015,
+                                6,
+                                6,
+                            ]}
                         />
                         <meshStandardMaterial color={point.color} />
+
+                        {/* Add translucent sphere if the color matches selectedColor */}
+                        {selectedColor === point.color && (
+                            <mesh>
+                                <sphereGeometry args={[tolerance, 16, 16]} />
+                                <meshStandardMaterial
+                                    color={point.color}
+                                    transparent={true}
+                                    opacity={0.4}
+                                />
+                            </mesh>
+                        )}
                     </mesh>
                 ))}
             </Canvas>
+            {/*<h4>Colors within Tolerance</h4>
+            <p>
+                {pointsWithinTolerance.map((point, idx) => (
+                    <span key={idx} style={{ color: point.color.getStyle() }}>
+                        .
+                    </span>
+                ))}
+            </p>*/}
         </div>
     );
 };

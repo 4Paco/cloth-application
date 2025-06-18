@@ -70,7 +70,7 @@ export default function ExcelTest() {
                         </TableHeader>
                         <TableBody>
                             {parsedData.map((d, i) => {
-                                const col = new ColorTranslator({ L: d.L, a: d.a, b: d.b });
+                                // const col = new ColorTranslator({ L: d.L, a: d.a, b: d.b });
                                 return (
                                     <TableRow key={i}>
                                         <TableCell className="w-[10px]">{d.id}</TableCell>
@@ -80,10 +80,35 @@ export default function ExcelTest() {
                                         <TableCell>{d.b}</TableCell>
                                         <TableCell>{d.E}</TableCell>
                                         <TableCell>
-                                            <div
-                                                className={cn('h-[2rem] w-[2rem] rounded')}
-                                                style={{ backgroundColor: col.RGB }}
-                                            ></div>
+                                            <div className="flex place-items-center">
+                                                {parsedData
+                                                    .filter((d2) => d2.id == d.id)
+                                                    .map((d2, i2) => {
+                                                        const col = new ColorTranslator({
+                                                            L: d2.L,
+                                                            a: d2.a,
+                                                            b: d2.b,
+                                                        });
+                                                        const idx = (i - 4 * d.id) % 4;
+                                                        return (
+                                                            idx == 0 && (
+                                                                <div
+                                                                    key={i2}
+                                                                    className={cn(
+                                                                        'flex-1 h-[2rem]',
+                                                                        i2 == 0 && ' rounded-l-md',
+                                                                        i2 == 3 && ' rounded-r-md'
+                                                                        // idx == i2 &&
+                                                                        //     'h-[2.6rem] w-[2.4rem] rounded-t-sm rounded-b-sm'
+                                                                    )}
+                                                                    style={{
+                                                                        backgroundColor: col.RGB,
+                                                                    }}
+                                                                ></div>
+                                                            )
+                                                        );
+                                                    })}
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 );

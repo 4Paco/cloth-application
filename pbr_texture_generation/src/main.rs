@@ -77,6 +77,20 @@ fn height_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>
 }
 
 #[allow(unused)]
+fn id_function(pixel: &mut Rgb<u8>, world: &World, world_point: Point2<f32>) {
+    let z = world
+        .wires
+        .iter()
+        .map(|w| w.get_height(world_point))
+        .position_max_by(|x, y| x.partial_cmp(y).unwrap());
+
+    if let Some(index) = z {
+        let bytes = index.to_le_bytes();
+        *pixel = image::Rgb([bytes[0], bytes[1], bytes[2]]);
+    }
+}
+
+#[allow(unused)]
 fn alpha_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>) {
     let z = world
         .wires
@@ -283,6 +297,7 @@ fn save_pbr(world: &mut World) {
     let height = Texture::new(texture_size.x, texture_size.y, extent);
     let normal = Texture::new(texture_size.x, texture_size.y, extent);
     let alpha = Texture::new(texture_size.x, texture_size.y, extent);
+    let mut ids = TextureU8::new(texture_size.x, texture_size.y, extent);
     // let mut roughness = Texture::new(1000, 1000, Vector2::new(1., 1.));
     // let mut ambient_occlusion = Texture::new(1000, 1000, Vector2::new(1., 1.));
 
@@ -322,6 +337,18 @@ fn save_pbr(world: &mut World) {
             }
             save_texture(texture, path);
         });
+
+    ids.image
+        .par_enumerate_pixels_mut()
+        .progress()
+        .for_each(|(x, y, pixel)| {
+            let texture_point: Point2<u32> = Point2::new(x, y);
+            let world_point: Point2<f32> =
+                texture_point_to_world(texture_point, &texture_size, &extent);
+
+            id_function(pixel, world, world_point)
+        });
+    ids.save("ids.png");
 }
 
 fn main() {

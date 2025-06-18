@@ -5,6 +5,7 @@ use nalgebra::{Point2, Point3, Vector2, Vector3};
 use crate::{drawable::Drawable, line::Line};
 
 pub struct WireNode {
+    pub index: usize,
     pub position: Point3<f32>,
     pub width: f32,
 }
@@ -66,23 +67,29 @@ pub struct Wire {
 }
 
 impl WireNode {
-    pub fn new(position: Point3<f32>, width: f32) -> Self {
-        Self { position, width }
+    pub fn new(index: usize, position: Point3<f32>, width: f32) -> Self {
+        Self {
+            index,
+            position,
+            width,
+        }
     }
 }
 
 impl Wire {
     #[allow(unused)]
     pub fn new(
+        index_begin: usize,
         begin: Point3<f32>,
+        index_end: usize,
         end: Point3<f32>,
         begin_width: f32,
         end_width: f32,
         caps: bool,
     ) -> Self {
         let nodes = vec![
-            WireNode::new(begin, begin_width),
-            WireNode::new(end, end_width),
+            WireNode::new(index_begin, begin, begin_width),
+            WireNode::new(index_end, end, end_width),
         ];
         Self {
             nodes,
@@ -184,6 +191,78 @@ impl Drawable for Wire {
             }
         }
         best_hit_z.unwrap_or(best_cap_z.unwrap_or(-f32::INFINITY))
+    }
+
+    fn get_height_with_id(&self, point: Point2<f32>) -> (f32, usize) {
+        let mut best_cap_z: Option<f32> = None;
+        let mut best_hit_z: Option<f32> = None;
+        let mut best_id: usize = 0;
+        for window in self.nodes.windows(2) {
+            match &window {
+                &[a, b] => {
+                    let line = Line::new(a.position.xy(), b.position.xy());
+                    let wm = a.width.max(b.width);
+                    let minimum = Vector2::new(
+                        a.position.x.min(b.position.x) - wm,
+                        a.position.y.min(b.position.y) - wm,
+                    );
+                    let maximum = Vector2::new(
+                        a.position.x.max(b.position.x) + wm,
+                        a.position.y.max(b.position.y) + wm,
+                    );
+                    if point.x < minimum.x
+                        || point.x > maximum.x
+                        || point.y < minimum.y
+                        || point.y > maximum.y
+                    {
+                        continue;
+                    }
+                    let w1 = a.width;
+                    let w2 = b.width;
+
+                    let z1 = a.position.z;
+                    let z2 = b.position.z;
+
+                    match line.distance_to_point(point) {
+                        crate::line::DistanceResult::Caps { t, d } => {
+                            let w = lerp(w1, w2, t);
+                            let z = lerp(z1, z2, t);
+                            if self.caps && d <= w {
+                                let new_z = z + w * self.profile.get_height(d / w);
+                                if let Some(old_best_cap_z) = best_cap_z {
+                                    if new_z > old_best_cap_z {
+                                        best_cap_z = Some(new_z);
+                                    }
+                                } else {
+                                    best_cap_z = Some(new_z);
+                                }
+                            }
+                        }
+                        crate::line::DistanceResult::Full { t, d } => {
+                            let w = lerp(w1, w2, t);
+                            let z = lerp(z1, z2, t);
+                            if d <= w {
+                                let new_z = z + w * self.profile.get_height(d / w);
+                                if let Some(old_best_hit_z) = best_hit_z {
+                                    if new_z > old_best_hit_z {
+                                        best_hit_z = Some(new_z);
+                                        best_id = a.index;
+                                    }
+                                } else {
+                                    best_hit_z = Some(new_z);
+                                    best_id = a.index;
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        (
+            best_hit_z.unwrap_or(best_cap_z.unwrap_or(-f32::INFINITY)),
+            best_id,
+        )
     }
 
     fn get_normal(&self, point: Point2<f32>) -> Vector3<f32> {

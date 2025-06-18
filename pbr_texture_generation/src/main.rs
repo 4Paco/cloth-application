@@ -78,14 +78,15 @@ fn height_function(pixel: &mut Rgb<f32>, world: &World, world_point: Point2<f32>
 
 #[allow(unused)]
 fn id_function(pixel: &mut Rgb<u8>, world: &World, world_point: Point2<f32>) {
+    const MULTIPLIER: usize = 24;
     let z = world
         .wires
         .iter()
-        .map(|w| w.get_height(world_point))
-        .position_max_by(|x, y| x.partial_cmp(y).unwrap());
+        .map(|w| w.get_height_with_id(world_point))
+        .max_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
 
     if let Some(index) = z {
-        let bytes = index.to_le_bytes();
+        let bytes = index.1.to_le_bytes();
         *pixel = image::Rgb([bytes[0], bytes[1], bytes[2]]);
     }
 }
@@ -174,7 +175,25 @@ fn generate_tissage(world: &mut World) {
                     );
                 let w = perlin_x.get([perlin_scale * x_pos as f64, perlin_scale * y_pos as f64]);
                 let w = 0.015 + 0.001 * w as f32;
+                let mut node_index: usize = (x as usize % 2) * 24 + x as usize + y as usize * 24;
+                // let mut node_index: usize =
+                //     24 * (y % 24) as usize + (x % 2) as usize + 2 * (x % 24) as usize;
+                if x % 2 == 0 {
+                    if i > RES / 2 {
+                        node_index = (x as usize % 2) * 24 + x as usize + (y + 1) as usize * 24;
+                    }
+                }
+                // let mut node_index: usize =
+                //     48 * (y % 24) as usize + ((y % 24) as usize % 2) + 2 * (x % 24) as usize;
+                // if x % 2 == 0 {
+                //     if i > RES / 2 {
+                //         node_index = 48 * ((y % 24) + 1) as usize
+                //             + (((y % 24) + 1) as usize % 2)
+                //             + 2 * (x % 24) as usize;
+                //     }
+                // }
                 nodes.push(WireNode::new(
+                    node_index,
                     Point3::new(
                         x_pos + offset.x as f32,
                         y_pos + offset.y as f32,
@@ -220,7 +239,33 @@ fn generate_tissage(world: &mut World) {
                 let w = perlin_x.get([perlin_scale * x_pos as f64, perlin_scale * y_pos as f64]);
                 let w = 0.015 + 0.001 * w as f32;
 
+                // let node_index: usize = 2 * (24 * 2 * y as usize + x as usize);
+                // let mut node_index: usize =
+                //     24 * (y % 24) as usize + 24 * ((x + 1) % 2) as usize + 2 * (x % 24) as usize;
+                let mut node_index: usize =
+                    (y as usize + 1) % 2 + 2 * (x as usize % 24) + 24 * (y as usize % 24);
+                if y % 2 == 1 {
+                    if i > RES / 2 {
+                        node_index = (y as usize + 1) % 2
+                            + 2 * ((x + 1) as usize % 24)
+                            + 24 * (y as usize % 24);
+                        // node_index = 24 * (y % 24) as usize
+                        //     + 24 * (x % 2) as usize
+                        //     + 2 * ((x + 1) % 24) as usize;
+                    }
+                }
+                // let mut node_index: usize =
+                //     48 * (y % 24) as usize + (((y % 24) as usize + 1) % 2) + 2 * (x % 24) as usize;
+                // if y % 2 == 1 {
+                //     if i > RES / 2 {
+                //         node_index = 48 * (y % 24) as usize
+                //             + (((y % 24) as usize + 1) % 2)
+                //             + 2 * ((x % 24) + 1) as usize;
+                //     }
+                // }
+
                 nodes.push(WireNode::new(
+                    node_index,
                     Point3::new(
                         x_pos + offset.x as f32,
                         y_pos + offset.y as f32,
@@ -247,9 +292,9 @@ fn generate_tissage(world: &mut World) {
 #[allow(unused)]
 fn generate_single_strand(world: &mut World) {
     let mut nodes: Vec<WireNode> = vec![];
-    nodes.push(WireNode::new(Point3::new(0.5, 0.2, 0.01), 0.05));
-    nodes.push(WireNode::new(Point3::new(0.5, 0.5, 0.01), 0.05));
-    nodes.push(WireNode::new(Point3::new(0.8, 0.5, 0.01), 0.05));
+    nodes.push(WireNode::new(0, Point3::new(0.5, 0.2, 0.01), 0.05));
+    nodes.push(WireNode::new(1, Point3::new(0.5, 0.5, 0.01), 0.05));
+    nodes.push(WireNode::new(2, Point3::new(0.8, 0.5, 0.01), 0.05));
 
     world.wires.push(Wire::new_from_nodes(nodes, true));
 }
@@ -291,9 +336,9 @@ fn save_texture<P: AsRef<Path>>(texture: Texture, path: P) {
 }
 
 fn save_pbr(world: &mut World) {
-    let texture_size = Vector2::new(1000, 1000);
+    let texture_size = Vector2::new(1024, 1024);
     let extent = Vector2::new(1., 1.);
-    let albedo = Texture::new(1000, 1000, Vector2::new(1., 1.));
+    let albedo = Texture::new(texture_size.x, texture_size.y, Vector2::new(1., 1.));
     let height = Texture::new(texture_size.x, texture_size.y, extent);
     let normal = Texture::new(texture_size.x, texture_size.y, extent);
     let alpha = Texture::new(texture_size.x, texture_size.y, extent);
@@ -308,24 +353,24 @@ fn save_pbr(world: &mut World) {
         &str,
     )> = vec![
         (albedo, albedo_function, None, "albedo.png"),
-        (
-            height,
-            height_function,
-            Some(map_texture_normalize),
-            "height.png",
-        ),
-        (
-            normal,
-            normal_function,
-            Some(map_texture_range),
-            "normal.png",
-        ),
-        (
-            alpha,
-            alpha_function,
-            Some(map_texture_normalize),
-            "alpha.png",
-        ),
+        // (
+        //     height,
+        //     height_function,
+        //     Some(map_texture_normalize),
+        //     "height.png",
+        // ),
+        // (
+        //     normal,
+        //     normal_function,
+        //     Some(map_texture_range),
+        //     "normal.png",
+        // ),
+        // (
+        //     alpha,
+        //     alpha_function,
+        //     Some(map_texture_normalize),
+        //     "alpha.png",
+        // ),
     ];
 
     textures

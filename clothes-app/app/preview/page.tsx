@@ -6,137 +6,265 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TessellateModifier } from 'three/examples/jsm/Addons.js';
 
 let isLightSelected = false;
+let cvs;
+let ctx: CanvasRenderingContext2D;
+
+function load_image(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+    });
+}
 
 const ThreeScene: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(
-                75,
-                window.innerWidth / window.innerHeight,
-                0.001,
-                1000
-            );
-            const renderer = new THREE.WebGLRenderer({ alpha: true });
-            // renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setSize(
-                containerRef.current?.clientWidth ?? 0,
-                containerRef.current?.clientHeight ?? 0
-            );
+        async function anonnymous() {
+            if (typeof window !== 'undefined') {
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(
+                    75,
+                    window.innerWidth / window.innerHeight,
+                    0.001,
+                    1000
+                );
+                const renderer = new THREE.WebGLRenderer({ alpha: true });
+                // renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setSize(
+                    containerRef.current?.clientWidth ?? 0,
+                    containerRef.current?.clientHeight ?? 0
+                );
 
-            containerRef.current?.appendChild(renderer.domElement);
-            camera.position.z = 5;
+                containerRef.current?.appendChild(renderer.domElement);
+                camera.position.z = 5;
 
-            const scale = {x: 20, y: 20};
+                const scale = { x: 1, y: 1 };
 
-            const albedo = new THREE.TextureLoader().load( "./blanc_BaseColor.png" );
-            albedo.wrapS = THREE.RepeatWrapping;
-            albedo.wrapT = THREE.RepeatWrapping;
-            albedo.repeat.set( scale.x, scale.y );
+                const normal = new THREE.TextureLoader().load('./default_cloth/normal.png');
+                normal.wrapS = THREE.RepeatWrapping;
+                normal.wrapT = THREE.RepeatWrapping;
+                normal.minFilter = THREE.NearestFilter;
+                normal.magFilter = THREE.NearestFilter;
+                normal.flipY = false;
+                normal.repeat.set(scale.x, scale.y);
 
-            const normal = new THREE.TextureLoader().load( "./blanc_Normal.png" );
-            normal.wrapS = THREE.RepeatWrapping;
-            normal.wrapT = THREE.RepeatWrapping;
-            normal.repeat.set( scale.x, scale.y );
-            
-            const height = new THREE.TextureLoader().load( "./blanc_Height.png" );
-            height.wrapS = THREE.RepeatWrapping;
-            height.wrapT = THREE.RepeatWrapping;
-            height.repeat.set( scale.x, scale.y );
+                const height = new THREE.TextureLoader().load('./default_cloth/height.png');
+                height.wrapS = THREE.RepeatWrapping;
+                height.wrapT = THREE.RepeatWrapping;
+                height.minFilter = THREE.NearestFilter;
+                height.magFilter = THREE.NearestFilter;
+                height.flipY = false;
+                height.repeat.set(scale.x, scale.y);
 
-            let geometry = new THREE.PlaneGeometry();
-            const tessellateModifier = new TessellateModifier(8, 2);
-            geometry = tessellateModifier.modify(geometry);
+                let geometry = new THREE.PlaneGeometry();
+                const tessellateModifier = new TessellateModifier(8, 2);
+                geometry = tessellateModifier.modify(geometry);
 
-            const sphere_geometry = new THREE.SphereGeometry(0.7);
-            const material = new THREE.MeshStandardMaterial({ map: albedo, normalMap: normal, bumpMap: height });
-            const sphere_material = new THREE.MeshPhysicalMaterial({ color: 0x0000ff });
-            const cube = new THREE.Mesh(geometry, material);
-            const sphere = new THREE.Mesh(sphere_geometry, sphere_material);
-            const light = new THREE.AmbientLight(0x404040);
-            // const pointlight = new THREE.PointLight(0xffffff, 20);
-            // pointlight.position.y = 3;
-            const pointlight = new THREE.PointLight(0xffffff);
-            const helper = new THREE.PointLightHelper(pointlight, 1);
-            pointlight.position.x = -3;
-            pointlight.position.z = 1;
-            sphere.position.x = 1;
-            // scene.add(sphere);
-            scene.add(cube);
-            scene.add(light);
-            // scene.add(helper);
-            scene.add(pointlight);
-            const pointLightHelper = new THREE.PointLightHelper(pointlight, 0.2, 0xff0000); // red helper
-            scene.add(pointLightHelper);
+                cvs = document.createElement('canvas');
+                cvs.width = 1024;
+                cvs.height = 1024;
+                ctx = cvs.getContext('2d') as CanvasRenderingContext2D;
+                ctx.imageSmoothingEnabled = false;
+                const ctx_image_data = ctx.createImageData(1024, 1024);
 
-            // Add raycaster and mouse logic here 
-            const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2();
+                const albedo = new THREE.CanvasTexture(cvs);
+                albedo.wrapS = THREE.RepeatWrapping;
+                albedo.wrapT = THREE.RepeatWrapping;
+                albedo.minFilter = THREE.NearestFilter;
+                albedo.magFilter = THREE.NearestFilter;
+                albedo.flipY = false;
+                albedo.repeat.set(scale.x, scale.y);
 
-            function onClick(event: MouseEvent) {
-                if (!renderer.domElement) return;
-                const rect = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                const get_index = (x: number, y: number, w: number = 1024): number => {
+                    const red = (y * w + x) * 4;
+                    return red;
+                };
 
-                raycaster.setFromCamera(mouse, camera);
+                Promise.all([
+                    load_image('./default_cloth/albedo.png'),
+                    load_image('./pixels2.png'),
+                    load_image('./default_cloth/ids.png'),
+                ]).then(([base_color, pixels, ids]) => {
+                    const base_color_cvs = document.createElement('canvas');
+                    base_color_cvs.width = base_color.width;
+                    base_color_cvs.height = base_color.height;
+                    const base_color_ctx = base_color_cvs.getContext(
+                        '2d'
+                    ) as CanvasRenderingContext2D;
+                    base_color_ctx.imageSmoothingEnabled = false;
+                    base_color_ctx.drawImage(base_color, 0, 0);
+                    const base_color_image_data = base_color_ctx.getImageData(
+                        0,
+                        0,
+                        base_color.width,
+                        base_color.height
+                    );
 
-                if (!isLightSelected) {
-                    // First click: check if the helper was clicked
-                    const intersects = raycaster.intersectObject(pointLightHelper, true);
-                    if (intersects.length > 0) {
-                        isLightSelected = true;
+                    const pixels_cvs = document.createElement('canvas');
+                    pixels_cvs.width = pixels.width;
+                    pixels_cvs.height = pixels.height;
+                    const pixels_ctx = pixels_cvs.getContext('2d') as CanvasRenderingContext2D;
+                    pixels_ctx.imageSmoothingEnabled = false;
+                    pixels_ctx.drawImage(pixels, 0, 0);
+                    const pixels_image_data = pixels_ctx.getImageData(
+                        0,
+                        0,
+                        pixels.width,
+                        pixels.height
+                    );
+
+                    const ids_cvs = document.createElement('canvas');
+                    ids_cvs.width = ids.width;
+                    ids_cvs.height = ids.height;
+                    const ids_ctx = ids_cvs.getContext('2d') as CanvasRenderingContext2D;
+                    ids_ctx.imageSmoothingEnabled = false;
+                    ids_ctx.drawImage(ids, 0, 0);
+                    const ids_image_data = ids_ctx.getImageData(0, 0, ids.width, ids.height);
+
+                    console.log(base_color.width, base_color.height);
+                    console.log(pixels.width, pixels.height);
+                    console.log(ids.width, ids.height);
+
+                    console.log(ids_image_data.data);
+
+                    // ctx.drawImage(pixels, 0, 0, 1024, 1024);
+                    for (let x = 0; x < 1024; x += 1) {
+                        for (let y = 0; y < 1024; y += 1) {
+                            const idx = get_index(x, y, 1024);
+                            const sample =
+                                ids_image_data.data[idx + 0] +
+                                ids_image_data.data[idx + 1] * 256 +
+                                ids_image_data.data[idx + 2] * 256 * 256;
+
+                            const indexed_x = sample % pixels_cvs.width;
+                            const indexed_y = Math.floor(sample / pixels_cvs.width);
+
+                            if (indexed_x > 48 || indexed_y > 48) console.log(indexed_x, indexed_y);
+
+                            const pixel_index = get_index(indexed_x, indexed_y, pixels_cvs.width);
+                            const base_color_index = get_index(x, y);
+
+                            const r = 0;
+                            const g = 255 * (indexed_y / 24);
+                            const b = 0;
+                            // const r = pixels_image_data.data[pixel_index + 0];
+                            // const g = pixels_image_data.data[pixel_index + 1];
+                            // const b = pixels_image_data.data[pixel_index + 2];
+                            // const r =
+                            //     pixels_image_data.data[pixel_index + 0] *
+                            //     base_color_image_data.data[base_color_index + 0];
+                            // const g =
+                            //     pixels_image_data.data[pixel_index + 1] *
+                            //     base_color_image_data.data[base_color_index + 1];
+                            // const b =
+                            //     pixels_image_data.data[pixel_index + 2] *
+                            //     base_color_image_data.data[base_color_index + 2];
+                            // const a =
+                            //     pixels_image_data.data[pixel_index + 3] *
+                            //     base_color_image_data.data[base_color_index + 3];
+                            ctx_image_data.data[idx + 0] = r;
+                            ctx_image_data.data[idx + 1] = g;
+                            ctx_image_data.data[idx + 2] = b;
+                            ctx_image_data.data[idx + 3] = 255;
+                        }
                     }
-                } else {
-                    // Second click: move the light to the clicked position on a plane (e.g., z=0)
-                    // We'll use a plane at z=0 for demonstration
-                    const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-                    const intersection = new THREE.Vector3();
-                    raycaster.ray.intersectPlane(planeZ, intersection);
-                    pointlight.position.copy(intersection);
-                    pointLightHelper.update();
-                    isLightSelected = false;
+
+                    ctx.putImageData(ctx_image_data, 0, 0);
+                    albedo.needsUpdate = true;
+                });
+
+                const sphere_geometry = new THREE.SphereGeometry(0.7);
+                const material = new THREE.MeshStandardMaterial({
+                    map: albedo,
+                    normalMap: normal,
+                    bumpMap: height,
+                });
+                const sphere_material = new THREE.MeshPhysicalMaterial({ color: 0x0000ff });
+                const cube = new THREE.Mesh(geometry, material);
+                const sphere = new THREE.Mesh(sphere_geometry, sphere_material);
+                const light = new THREE.AmbientLight(0xffffff);
+                // const pointlight = new THREE.PointLight(0xffffff);
+
+                // pointlight.position.x = -3;
+                // pointlight.position.z = 1;
+                sphere.position.x = 1;
+                // scene.add(sphere);
+                scene.add(cube);
+                scene.add(light);
+                // scene.add(pointlight);
+                // const pointLightHelper = new THREE.PointLightHelper(pointlight, 0.2, 0xff0000); // red helper
+                // scene.add(pointLightHelper);
+
+                // Add raycaster and mouse logic here
+                const raycaster = new THREE.Raycaster();
+                const mouse = new THREE.Vector2();
+
+                function onClick(event: MouseEvent) {
+                    if (!renderer.domElement) return;
+                    const rect = renderer.domElement.getBoundingClientRect();
+                    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                    raycaster.setFromCamera(mouse, camera);
+
+                    if (!isLightSelected) {
+                        // First click: check if the helper was clicked
+                        const intersects = raycaster.intersectObject(pointLightHelper, true);
+                        if (intersects.length > 0) {
+                            isLightSelected = true;
+                        }
+                    } else {
+                        // Second click: move the light to the clicked position on a plane (e.g., z=0)
+                        // We'll use a plane at z=0 for demonstration
+                        const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+                        const intersection = new THREE.Vector3();
+                        raycaster.ray.intersectPlane(planeZ, intersection);
+                        pointlight.position.copy(intersection);
+                        pointLightHelper.update();
+                        isLightSelected = false;
+                    }
                 }
-            }
 
-            renderer.domElement.addEventListener('click', onClick);
+                renderer.domElement.addEventListener('click', onClick);
 
-            const controls = new OrbitControls(camera, renderer.domElement);
+                const controls = new OrbitControls(camera, renderer.domElement);
 
-            // Render the scene and camera
-            renderer.render(scene, camera);
-
-            // Add this function inside the useEffect hook
-            const renderScene = (t: number) => {
-                pointlight.position.x = Math.cos(0.0015*t);
-                pointlight.position.y = Math.cos(0.001*t);
-                controls.update();
+                // Render the scene and camera
                 renderer.render(scene, camera);
-                requestAnimationFrame(renderScene);
-            };
 
-            // Call the renderScene function to start the animation loop
-            renderScene(0);
+                // Add this function inside the useEffect hook
+                const renderScene = (t: number) => {
+                    // pointlight.position.x = Math.cos(0.0015 * t);
+                    // pointlight.position.y = Math.cos(0.001 * t);
+                    controls.update();
+                    renderer.render(scene, camera);
+                    requestAnimationFrame(renderScene);
+                };
 
-            const handleResize = () => {
-                const width = window.innerWidth;
-                const height = window.innerHeight;
+                // Call the renderScene function to start the animation loop
+                renderScene(0);
 
-                camera.aspect = width / height;
-                camera.updateProjectionMatrix();
+                const handleResize = () => {
+                    const width = window.innerWidth;
+                    const height = window.innerHeight;
 
-                renderer.setSize(width, height);
-            };
+                    camera.aspect = width / height;
+                    camera.updateProjectionMatrix();
 
-            window.addEventListener('resize', handleResize);
+                    renderer.setSize(width, height);
+                };
 
-            // Clean up the event listener when the component is unmounted
-            return () => {
-                window.removeEventListener('resize', handleResize);
-            };
-            
+                window.addEventListener('resize', handleResize);
+
+                // Clean up the event listener when the component is unmounted
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                };
+            }
         }
+        anonnymous();
     }, []);
     return <div className="flex-1" ref={containerRef} />;
 };

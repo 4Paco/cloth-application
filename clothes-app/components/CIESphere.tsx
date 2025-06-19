@@ -1,6 +1,6 @@
 'use client';
 
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Line } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { useMemo, useState } from 'react';
 import * as THREE from 'three';
@@ -79,33 +79,56 @@ const CIESphere = () => {
         E: number;
     }
     const tableau_test: ColorEntry[] = [
-        { id: 1, hours: 10, L: 50, a: -20, b: 30, E: 2.5 },
-        { id: 1, hours: 20, L: 50, a: -20, b: 30, E: 2.5 },
-        { id: 1, hours: 30, L: 50, a: -20, b: 30, E: 2.5 },
-        { id: 1, hours: 40, L: 50, a: -20, b: 30, E: 2.5 },
-        { id: 1, hours: 0, L: 50, a: -20, b: 30, E: 2.5 },
+        { id: 1, hours: 0, L: 50, a: -40, b: 45, E: 2.5 },
+        { id: 1, hours: 10, L: 53.23, a: 80.11, b: 67.22, E: 2.5 },
+        { id: 1, hours: 20, L: 43, a: 50, b: 60, E: 2.5 },
+        { id: 1, hours: 30, L: 33, a: 20, b: 55, E: 2.5 },
+        { id: 1, hours: 40, L: 23, a: -10, b: 50, E: 2.5 },
         { id: 2, hours: 20, L: 60, a: 10, b: -15, E: 3.1 },
         { id: 3, hours: 15, L: 45, a: 25, b: -10, E: 1.8 },
         { id: 4, hours: 30, L: 70, a: -5, b: 20, E: 2.9 },
         { id: 5, hours: 25, L: 55, a: 15, b: -25, E: 3.4 },
     ];
 
-    const getColorantWithinTolerance = () => {
+    const getColorantsToPlot = () => {
         if (!selectedPosition) return [];
 
-        return tableau_test.filter((colorant) => {
-            if (colorant.hours == 0) {
-                const position = [colorant.a / 100, colorant.b / 100, (colorant.L - 50) / 100];
-                const distance = new THREE.Vector3(...position).distanceTo(
-                    new THREE.Vector3(...selectedPosition)
-                );
-                if (distance <= tolerance) {
-                }
-            }
+        const colorants_tolerated = tableau_test.filter((colorant) => {
+            if (colorant.hours != 0) return false;
+
+            const position = [colorant.a / 100, colorant.b / 100, (colorant.L - 50) / 100];
+            const distance = new THREE.Vector3(...position).distanceTo(
+                new THREE.Vector3(...selectedPosition)
+            );
+            return distance <= tolerance;
+            //return true;
         });
+        console.log(colorants_tolerated.length);
+
+        var to_plot = [];
+        colorants_tolerated.forEach((node_0) => {
+            const id = node_0.id;
+            const family = tableau_test.filter((col) => {
+                return col.id == id;
+            });
+            console.log('family:', family);
+
+            var positions_family = [];
+            var colors_family = [];
+            family.forEach((node) => {
+                const position = [node.a / 100, node.b / 100, (node.L - 50) / 100];
+                const color_node = labToRgb(node.L, node.a, node.b);
+                const color_rgb = [color_node.r, color_node.g, color_node.b];
+                positions_family.push(position);
+                colors_family.push(color_rgb);
+            });
+            to_plot.push([positions_family, colors_family]);
+        });
+        console.log('to_plot: ', to_plot);
+        return to_plot;
     };
 
-    const colorantWithinTolerance = getColorantWithinTolerance();
+    const colorantsFamiliesToPlot = getColorantsToPlot();
 
     const getPointsWithinTolerance = () => {
         if (!selectedPosition) return [];
@@ -129,140 +152,188 @@ const CIESphere = () => {
     ];
 
     return (
-        <div style={{ display: 'flex', height: '100vh', color: 'white', fontFamily: 'sans-serif' }}>
-            <div style={{ width: '200px', background: '#111', padding: '1rem' }}>
-                <h3>Suggested Colors</h3>
-                {suggestedColors.map((hex, i) => (
-                    <div
-                        key={i}
-                        onClick={() => {
-                            if (!colorValidated) {
-                                setSelectedColor(hex);
-                                points.forEach((point) => {
-                                    if (selectedColor === point.color) {
-                                        setSelectedPosition(new THREE.Vector3(...point.position));
-                                    }
-                                });
-                            }
-                        }}
-                        style={{
-                            background: hex.getStyle(),
-                            height: '30px',
-                            width: '100%',
-                            marginBottom: '10px',
-                            cursor: 'pointer',
-                        }}
-                    />
-                ))}
-                {selectedColor && (
-                    <>
-                        <h4>Selected Color</h4>
-                        <div
-                            style={{ background: `#${selectedColor.getHexString()}`, height: 30 }}
-                        ></div>
-                        <label>Bubble Size</label>
-                        <input
-                            type="range"
-                            min={0.01}
-                            max={0.15}
-                            step={0.005}
-                            value={selectedSize}
-                            onChange={(e) => setSelectedSize(parseFloat(e.target.value))}
-                            style={{ width: '100%' }}
-                        />
-                    </>
-                )}
-                {selectedColor && (
-                    <>
-                        <label>Selection Tolerance</label>
-                        <input
-                            type="range"
-                            min={0.01}
-                            max={0.3}
-                            step={0.005}
-                            value={tolerance}
-                            onChange={(e) => setTolerance(parseFloat(e.target.value))}
-                            style={{ width: '100%' }}
-                        />
-                    </>
-                )}
-                {selectedColor && !colorValidated && (
-                    <>
-                        <input
-                            type="Button"
-                            //title="Validate selection"
-                            defaultValue="Validate selection"
-                            onClick={(e) => {
-                                setColorValidated(true), console.log(colorValidated);
-                            }}
-                            style={{ width: '100%', background: 'dimgrey' }}
-                        />
-                    </>
-                )}
-                {colorValidated && (
-                    <>
-                        <br />
-                        <br />
-                        <input
-                            type="Button"
-                            //title="Change selection"
-                            defaultValue="Change selection"
-                            onClick={(e) => {
-                                setColorValidated(false), console.log(colorValidated);
-                            }}
-                            style={{ width: '100%', background: 'dimgrey' }}
-                        />
-                    </>
-                )}
-            </div>
-            <Canvas
-                id="canvas"
-                style={{ background: 'black', flex: 1 }}
-                camera={{ position: [0, 0, 3], fov: 75 }}
+        <>
+            <div
+                style={{
+                    display: 'flex',
+                    height: '100vh',
+                    color: 'white',
+                    fontFamily: 'sans-serif',
+                }}
             >
-                <ambientLight intensity={1.2} />
-                <OrbitControls />
-                {points.map((point, idx) => (
-                    <mesh
-                        key={idx}
-                        position={point.position}
-                        onPointerDown={() => {
-                            if (!colorValidated) {
-                                setSelectedColor(point.color);
-                                setSelectedPosition(new THREE.Vector3(...point.position));
-                            }
-                        }}
-                    >
-                        <sphereGeometry
-                            args={[
-                                selectedColor === point.color
-                                    ? selectedSize
-                                    : pointsWithinTolerance.includes(point)
-                                    ? selectedSize * 0.7
-                                    : colorValidated
-                                    ? 0
-                                    : 0.015,
-                                6,
-                                6,
-                            ]}
+                <div style={{ width: '200px', background: '#111', padding: '1rem' }}>
+                    <h3>Suggested Colors</h3>
+                    {suggestedColors.map((hex, i) => (
+                        <div
+                            key={String(i) + '_' + String(i) + '_' + String(i)}
+                            onClick={() => {
+                                if (!colorValidated) {
+                                    setSelectedColor(hex);
+                                    points.forEach((point) => {
+                                        if (selectedColor === point.color) {
+                                            console.log(point.color);
+                                            setSelectedPosition(
+                                                new THREE.Vector3(...point.position)
+                                            );
+                                        }
+                                    });
+                                }
+                            }}
+                            style={{
+                                background: hex.getStyle(),
+                                height: '30px',
+                                width: '100%',
+                                marginBottom: '10px',
+                                cursor: 'pointer',
+                            }}
                         />
-                        <meshStandardMaterial color={point.color} />
+                    ))}
+                    {selectedColor && (
+                        <>
+                            <h4>Selected Color</h4>
+                            <div
+                                style={{
+                                    background: `#${selectedColor.getHexString()}`,
+                                    height: 30,
+                                }}
+                            ></div>
+                            <label>Bubble Size</label>
+                            <input
+                                type="range"
+                                min={0.01}
+                                max={0.15}
+                                step={0.005}
+                                value={selectedSize}
+                                onChange={(e) => setSelectedSize(parseFloat(e.target.value))}
+                                style={{ width: '100%' }}
+                            />
+                        </>
+                    )}
+                    {selectedColor && (
+                        <>
+                            <label>Selection Tolerance</label>
+                            <input
+                                type="range"
+                                min={0.01}
+                                max={0.3}
+                                step={0.005}
+                                value={tolerance}
+                                onChange={(e) => setTolerance(parseFloat(e.target.value))}
+                                style={{ width: '100%' }}
+                            />
+                        </>
+                    )}
+                    {selectedColor && !colorValidated && (
+                        <>
+                            <input
+                                type="Button"
+                                //title="Validate selection"
+                                defaultValue="Validate selection"
+                                onClick={(e) => {
+                                    setColorValidated(true), console.log(colorValidated);
+                                }}
+                                style={{ width: '100%', background: 'dimgrey' }}
+                            />
+                        </>
+                    )}
+                    {colorValidated && (
+                        <>
+                            <br />
+                            <br />
+                            <input
+                                type="Button"
+                                //title="Change selection"
+                                defaultValue="Change selection"
+                                onClick={(e) => {
+                                    setColorValidated(false), console.log(colorValidated);
+                                }}
+                                style={{ width: '100%', background: 'dimgrey' }}
+                            />
+                        </>
+                    )}
+                </div>
 
-                        {/* Add translucent sphere if the color matches selectedColor */}
-                        {selectedColor === point.color && (
-                            <mesh>
-                                <sphereGeometry args={[tolerance, 16, 16]} />
-                                <meshStandardMaterial
-                                    color={point.color}
-                                    transparent={true}
-                                    opacity={0.4}
-                                />
-                            </mesh>
-                        )}
-                    </mesh>
-                ))}
-            </Canvas>
-            {/*<h4>Colors within Tolerance</h4>
+                <Canvas
+                    id="canvas"
+                    style={{ background: 'black', flex: 1 }}
+                    camera={{ position: [0, 0, 3], fov: 75 }}
+                >
+                    <ambientLight intensity={1.2} />
+                    <OrbitControls />
+                    {/*{colorantsWithinTolerance.map((colorant, idx) => {
+                        const id = colorant.id;
+
+                        const family = tableau_test.filter((col) => {
+                            return col.id == id;
+                        });
+
+                        var positions_family = [];
+                        var colors_family = [];
+                        family.forEach((node) => {
+                            const position = [node.a / 100, node.b / 100, (node.L - 50) / 100];
+                            const color_node = labToRgb(node.L, node.a, node.b);
+                            positions_family.push(position);
+                            colors_family.push(color_node);
+                        });
+
+                        <Line
+                            points={positions_family}
+                            color="white"
+                            vertexColors={colors_family}
+                            lineWidth={5}
+                        />;
+                    })}*/}
+                    {points.map((point, idx) => (
+                        <mesh
+                            key={idx}
+                            position={point.position}
+                            onPointerDown={() => {
+                                if (!colorValidated) {
+                                    setSelectedColor(point.color);
+                                    setSelectedPosition(new THREE.Vector3(...point.position));
+                                }
+                            }}
+                        >
+                            <sphereGeometry
+                                args={[
+                                    selectedColor === point.color
+                                        ? selectedSize
+                                        : pointsWithinTolerance.includes(point)
+                                        ? selectedSize * 0.7
+                                        : colorValidated
+                                        ? 0
+                                        : 0.015,
+                                    6,
+                                    6,
+                                ]}
+                            />
+                            <meshStandardMaterial color={point.color} />
+
+                            {/* Add translucent sphere if the color matches selectedColor */}
+                            {selectedColor === point.color && (
+                                <mesh>
+                                    <sphereGeometry args={[tolerance, 16, 16]} />
+                                    <meshStandardMaterial
+                                        color={point.color}
+                                        transparent={true}
+                                        opacity={0.4}
+                                    />
+                                </mesh>
+                            )}
+                        </mesh>
+                    ))}
+                    {colorantsFamiliesToPlot.map((array, idx) => (
+                        <mesh key={String(idx) + '_' + String(idx)}>
+                            <Line
+                                points={array[0]}
+                                color="white"
+                                vertexColors={array[1]}
+                                lineWidth={10}
+                            />
+                        </mesh>
+                    ))}
+                </Canvas>
+                {/*<h4>Colors within Tolerance</h4>
             <p>
                 {pointsWithinTolerance.map((point, idx) => (
                     <span key={idx} style={{ color: point.color.getStyle() }}>
@@ -270,7 +341,8 @@ const CIESphere = () => {
                     </span>
                 ))}
             </p>*/}
-        </div>
+            </div>
+        </>
     );
 };
 

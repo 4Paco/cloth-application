@@ -60,17 +60,17 @@ const CIESphere = () => {
         const spheres: { position: [number, number, number]; color: THREE.Color }[] = [];
         const step = 10;
 
-        for (let L = 20; L <= 90; L += step) {
-            for (let a = -80; a <= 80; a += step) {
-                for (let b = -80; b <= 80; b += step) {
+        for (let L = 0; L <= 100; L += step) {
+            for (let a = -120; a <= 120; a += step) {
+                for (let b = -120; b <= 120; b += step) {
                     const radius = Math.sqrt(a * a + b * b + (L - 50) * (L - 50));
-                    if (radius <= 90) {
-                        const color = labToRgb(L, a, b);
-                        spheres.push({
-                            position: [a / 100, b / 100, (L - 50) / 100],
-                            color,
-                        });
-                    }
+                    //if (radius <= 90) {
+                    const color = labToRgb(L, a, b);
+                    spheres.push({
+                        position: [a / 100, b / 100, (L - 50) / 100],
+                        color,
+                    });
+                    //}
                 }
             }
         }
@@ -200,7 +200,7 @@ const CIESphere = () => {
                             <label>Bubble Size</label>
                             <input
                                 type="range"
-                                min={0.01}
+                                min={0.0}
                                 max={0.15}
                                 step={0.005}
                                 value={selectedSize}
@@ -215,7 +215,7 @@ const CIESphere = () => {
                             <input
                                 type="range"
                                 min={0.01}
-                                max={0.3}
+                                max={0.5}
                                 step={0.005}
                                 value={tolerance}
                                 onChange={(e) => setTolerance(parseFloat(e.target.value))}
@@ -342,37 +342,66 @@ const CIESphere = () => {
                         );
                     })}
                 </Canvas>
-                {selectedColorants.map((id_select, i) => (
-                    <div className="flex place-items-center">
-                        {tableau_test
-                            .filter((d2) => d2.id == id_select)
-                            .map((d2, i2) => {
+                {selectedColorants && (
+                    <div className="flex flex-col place-content-start">
+                        <h4>Ongoing selection of colorants</h4>
+                        {selectedColorants.map((id_select, i) => {
+                            const colorantData =
+                                tableau_test?.filter((d2) => d2.id === id_select) || [];
+                            const maxHours = Math.max(...colorantData.map((d2) => d2.hours));
+                            const gradientStops = colorantData.map((d2) => {
                                 const col = new ColorTranslator({
                                     L: d2.L,
                                     a: d2.a,
                                     b: d2.b,
                                 });
-                                const idx = (i - 4 * id_select) % 4;
-                                return (
-                                    idx == 0 && (
-                                        <div
-                                            key={i2}
-                                            className={cn(
-                                                'flex-1 h-[2rem]',
-                                                i2 == 0 && ' rounded-l-md',
-                                                i2 == 3 && ' rounded-r-md'
-                                                // idx == i2 &&
-                                                //     'h-[2.6rem] w-[2.4rem] rounded-t-sm rounded-b-sm'
-                                            )}
-                                            style={{
-                                                backgroundColor: col.RGB,
-                                            }}
-                                        ></div>
-                                    )
-                                );
-                            })}
+                                const stopPoint = (d2.hours / maxHours) * 100;
+                                return `${col.RGB}`; //; ${stopPoint}%`;
+                            });
+                            console.log('gradStops: ', gradientStops);
+                            return (
+                                <div className="flex flex-row m-2 h-[2rem] rounded-md">
+                                    <button
+                                        className="mr-2"
+                                        onClick={(e) => {
+                                            console.log('X');
+                                            setSelectedColorants((prev) => {
+                                                if (prev.includes(id_select)) {
+                                                    return prev.filter((id) => id !== id_select);
+                                                }
+                                                return prev;
+                                            });
+                                        }}
+                                    >
+                                        {/*trash icon*/}
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="16"
+                                            height="16"
+                                            fill="red"
+                                            class="bi bi-trash-fill"
+                                            viewBox="0 0 16 16"
+                                        >
+                                            <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5M8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5m3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0" />
+                                        </svg>
+                                    </button>
+                                    <div
+                                        key={String(i) + '_gradient'}
+                                        className="rounded-md"
+                                        style={{
+                                            background: `linear-gradient(to right, ${gradientStops.join(
+                                                ', '
+                                            )})`,
+                                            width: `${maxHours * 0.1}px`, // Adjust width proportionate to maxHours
+                                        }}
+                                    ></div>
+                                    <br />
+                                    <br />
+                                </div>
+                            );
+                        })}
                     </div>
-                ))}
+                )}
             </div>
         </>
     );

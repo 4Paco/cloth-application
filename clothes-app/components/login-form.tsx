@@ -8,27 +8,44 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Image from 'next/image';
 
-
 import pigments from '@/public/pigments.jpg';
 
-
 export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
+    const router = useRouter();
 
-        const router = useRouter();
-
-        function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+    function handleLogin(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
 
         // (optionnel) tu peux vérifier email/mot de passe ici
 
         router.push('../CIE'); // redirection vers la page /CIE
-        }
+    }
     return (
         <div className={cn('flex flex-col gap-6', className)} {...props}>
             <Card className="overflow-hidden p-0">
                 <CardContent className="grid p-0 md:grid-cols-2">
                     <form className="p-6 md:p-8" onSubmit={handleLogin}>
                         <div className="flex flex-col gap-6">
+                            {/*<input
+                                defaultValue={'Just a cute button'}
+                                onClick={() => {
+                                    window.location.href = '/CIE';
+                                }}
+                            />*/}
+                            <Button
+                                onClick={() => {
+                                    window.location.href = '/CIE';
+                                }}
+                                type="submit"
+                                className="w-full"
+                            >
+                                Se connecter en mode invité
+                            </Button>
+                            <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
+                                {/*<span className="bg-card text-muted-foreground relative z-10 px-2">
+                                    Or continue with
+                                </span>*/}
+                            </div>
                             <div className="flex flex-col items-start text-left">
                                 <h1 className="text-2xl font-bold">Bon retour !</h1>
                                 <p className="text-muted-foreground text-sm">

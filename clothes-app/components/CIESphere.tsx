@@ -2,7 +2,9 @@
 
 import { OrbitControls, Line } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { ColorEntry } from './color_handling';
+import { ColorButton } from './ExcelButton';
 import * as THREE from 'three';
 
 function labToRgb(L: number, a: number, b: number) {
@@ -48,6 +50,8 @@ const CIESphere = () => {
     const [selectedPosition, setSelectedPosition] = useState<THREE.Vector3 | null>(null);
     const [colorValidated, setColorValidated] = useState(false);
     const [tolerance, setTolerance] = useState(0.1);
+    const [tableau_test, setParsedData] = useState<ColorEntry[] | null>(null);
+    const [selectedColorants, setSelectedColorants] = useState<ColorEntry[]>([]);
 
     const points = useMemo(() => {
         const spheres: { position: [number, number, number]; color: THREE.Color }[] = [];
@@ -70,25 +74,18 @@ const CIESphere = () => {
         return spheres;
     }, []);
 
-    interface ColorEntry {
-        id: number;
-        hours: number;
-        L: number;
-        a: number;
-        b: number;
-        E: number;
-    }
-    const tableau_test: ColorEntry[] = [
-        { id: 1, hours: 0, L: 50, a: -40, b: 45, E: 2.5 },
-        { id: 1, hours: 10, L: 53.23, a: 80.11, b: 67.22, E: 2.5 },
-        { id: 1, hours: 20, L: 43, a: 50, b: 60, E: 2.5 },
-        { id: 1, hours: 30, L: 33, a: 20, b: 55, E: 2.5 },
-        { id: 1, hours: 40, L: 23, a: -10, b: 50, E: 2.5 },
-        { id: 2, hours: 20, L: 60, a: 10, b: -15, E: 3.1 },
-        { id: 3, hours: 15, L: 45, a: 25, b: -10, E: 1.8 },
-        { id: 4, hours: 30, L: 70, a: -5, b: 20, E: 2.9 },
-        { id: 5, hours: 25, L: 55, a: 15, b: -25, E: 3.4 },
-    ];
+    //const tableau_test: ColorEntry[] = [
+    //    { id: 1, hours: 0, L: 50, a: -40, b: 45, E: 2.5 },
+    //    { id: 1, hours: 10, L: 53.23, a: 80.11, b: 67.22, E: 2.5 },
+    //    { id: 1, hours: 20, L: 43, a: 50, b: 60, E: 2.5 },
+    //    { id: 1, hours: 30, L: 33, a: 20, b: 55, E: 2.5 },
+    //    { id: 1, hours: 40, L: 23, a: -10, b: 50, E: 2.5 },
+    //    { id: 2, hours: 20, L: 60, a: 10, b: -15, E: 3.1 },
+    //    { id: 3, hours: 15, L: 45, a: 25, b: -10, E: 1.8 },
+    //    { id: 4, hours: 30, L: 70, a: -5, b: 20, E: 2.9 },
+    //    { id: 5, hours: 25, L: 55, a: 15, b: -25, E: 3.4 },
+    //];
+    // const tableau_test = parseCSVText(open('../tmp.csv').text());
 
     const getColorantsToPlot = () => {
         if (!selectedPosition) return [];
@@ -103,7 +100,6 @@ const CIESphere = () => {
             return distance <= tolerance;
             //return true;
         });
-        console.log(colorants_tolerated.length);
 
         var to_plot = [];
         colorants_tolerated.forEach((node_0) => {
@@ -111,7 +107,6 @@ const CIESphere = () => {
             const family = tableau_test.filter((col) => {
                 return col.id == id;
             });
-            console.log('family:', family);
 
             var positions_family = [];
             var colors_family = [];
@@ -122,9 +117,8 @@ const CIESphere = () => {
                 positions_family.push(position);
                 colors_family.push(color_rgb);
             });
-            to_plot.push([positions_family, colors_family]);
+            to_plot.push([id, positions_family, colors_family]);
         });
-        console.log('to_plot: ', to_plot);
         return to_plot;
     };
 
@@ -162,6 +156,10 @@ const CIESphere = () => {
                 }}
             >
                 <div style={{ width: '200px', background: '#111', padding: '1rem' }}>
+                    <h3 className="font-bold">Open your CSV file containing colors</h3>
+                    <div>
+                        <ColorButton setParsedData={setParsedData} />
+                    </div>
                     <h3>Suggested Colors</h3>
                     {suggestedColors.map((hex, i) => (
                         <div
@@ -260,29 +258,7 @@ const CIESphere = () => {
                 >
                     <ambientLight intensity={1.2} />
                     <OrbitControls />
-                    {/*{colorantsWithinTolerance.map((colorant, idx) => {
-                        const id = colorant.id;
 
-                        const family = tableau_test.filter((col) => {
-                            return col.id == id;
-                        });
-
-                        var positions_family = [];
-                        var colors_family = [];
-                        family.forEach((node) => {
-                            const position = [node.a / 100, node.b / 100, (node.L - 50) / 100];
-                            const color_node = labToRgb(node.L, node.a, node.b);
-                            positions_family.push(position);
-                            colors_family.push(color_node);
-                        });
-
-                        <Line
-                            points={positions_family}
-                            color="white"
-                            vertexColors={colors_family}
-                            lineWidth={5}
-                        />;
-                    })}*/}
                     {points.map((point, idx) => (
                         <mesh
                             key={idx}
@@ -325,22 +301,24 @@ const CIESphere = () => {
                     {colorantsFamiliesToPlot.map((array, idx) => (
                         <mesh key={String(idx) + '_' + String(idx)}>
                             <Line
-                                points={array[0]}
+                                points={array[1]}
                                 color="white"
-                                vertexColors={array[1]}
+                                vertexColors={array[2]}
                                 lineWidth={10}
+                                onClick={() => {
+                                    setSelectedColorants((prev) => {
+                                        // Check if the ID already exists in the list to avoid duplicates
+                                        console.log([...prev, array[0]]);
+                                        if (!prev.includes(array[0])) {
+                                            return [...prev, array[0]];
+                                        }
+                                        return prev; // Return the same list if the ID already exists
+                                    });
+                                }}
                             />
                         </mesh>
                     ))}
                 </Canvas>
-                {/*<h4>Colors within Tolerance</h4>
-            <p>
-                {pointsWithinTolerance.map((point, idx) => (
-                    <span key={idx} style={{ color: point.color.getStyle() }}>
-                        .
-                    </span>
-                ))}
-            </p>*/}
             </div>
         </>
     );

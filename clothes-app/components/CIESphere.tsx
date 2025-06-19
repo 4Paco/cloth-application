@@ -1,11 +1,14 @@
 'use client';
 
-import { OrbitControls, Line } from '@react-three/drei';
+import { Line, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
+import * as THREE from 'three';
 import { ColorEntry } from './color_handling';
 import { ColorButton } from './ExcelButton';
-import * as THREE from 'three';
+import { ColorTranslator } from 'colortranslator';
+
+import { cn } from '@/lib/utils';
 
 function labToRgb(L: number, a: number, b: number) {
     const y = (L + 16) / 116;
@@ -85,7 +88,6 @@ const CIESphere = () => {
     //    { id: 4, hours: 30, L: 70, a: -5, b: 20, E: 2.9 },
     //    { id: 5, hours: 25, L: 55, a: 15, b: -25, E: 3.4 },
     //];
-    // const tableau_test = parseCSVText(open('../tmp.csv').text());
 
     const getColorantsToPlot = () => {
         if (!selectedPosition) return [];
@@ -298,27 +300,79 @@ const CIESphere = () => {
                             )}
                         </mesh>
                     ))}
-                    {colorantsFamiliesToPlot.map((array, idx) => (
-                        <mesh key={String(idx) + '_' + String(idx)}>
-                            <Line
-                                points={array[1]}
-                                color="white"
-                                vertexColors={array[2]}
-                                lineWidth={10}
-                                onClick={() => {
-                                    setSelectedColorants((prev) => {
-                                        // Check if the ID already exists in the list to avoid duplicates
-                                        console.log([...prev, array[0]]);
-                                        if (!prev.includes(array[0])) {
-                                            return [...prev, array[0]];
-                                        }
-                                        return prev; // Return the same list if the ID already exists
-                                    });
-                                }}
-                            />
-                        </mesh>
-                    ))}
+                    {colorantsFamiliesToPlot.map((array, idx) => {
+                        const startPoint = new THREE.Vector3(...array[1][array[1].length - 2]); // First point of the line
+                        const endPoint = new THREE.Vector3(...array[1][array[1].length - 1]); // Last point of the line
+                        const direction = new THREE.Vector3()
+                            .subVectors(endPoint, startPoint)
+                            .normalize();
+                        const arrowLength = 0.05;
+                        const arrowColor = 'red';
+                        const arrowHeadLength = arrowLength / 2;
+
+                        return (
+                            <mesh key={String(idx) + '_' + String(idx)}>
+                                <Line
+                                    points={array[1]}
+                                    color="white"
+                                    vertexColors={array[2]}
+                                    lineWidth={10}
+                                    onClick={() => {
+                                        setSelectedColorants((prev) => {
+                                            if (!prev.includes(array[0])) {
+                                                return [...prev, array[0]];
+                                            }
+                                            return prev;
+                                        });
+                                    }}
+                                />
+                                {/* Add ArrowHelper */}
+                                <primitive
+                                    object={
+                                        new THREE.ArrowHelper(
+                                            direction,
+                                            endPoint,
+                                            arrowLength,
+                                            arrowColor,
+                                            arrowHeadLength
+                                        )
+                                    }
+                                />
+                            </mesh>
+                        );
+                    })}
                 </Canvas>
+                {selectedColorants.map((id_select, i) => (
+                    <div className="flex place-items-center">
+                        {tableau_test
+                            .filter((d2) => d2.id == id_select)
+                            .map((d2, i2) => {
+                                const col = new ColorTranslator({
+                                    L: d2.L,
+                                    a: d2.a,
+                                    b: d2.b,
+                                });
+                                const idx = (i - 4 * id_select) % 4;
+                                return (
+                                    idx == 0 && (
+                                        <div
+                                            key={i2}
+                                            className={cn(
+                                                'flex-1 h-[2rem]',
+                                                i2 == 0 && ' rounded-l-md',
+                                                i2 == 3 && ' rounded-r-md'
+                                                // idx == i2 &&
+                                                //     'h-[2.6rem] w-[2.4rem] rounded-t-sm rounded-b-sm'
+                                            )}
+                                            style={{
+                                                backgroundColor: col.RGB,
+                                            }}
+                                        ></div>
+                                    )
+                                );
+                            })}
+                    </div>
+                ))}
             </div>
         </>
     );

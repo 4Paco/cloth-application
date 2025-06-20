@@ -2,7 +2,7 @@
 
 import { Line, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { ColorEntry } from './color_handling';
 import { ColorButton } from './ExcelButton';
@@ -47,7 +47,11 @@ function labToRgb(L: number, a: number, b: number) {
     );
 }
 
-const CIESphere = () => {
+interface CIESphereProps {
+    current_selectedColors: any[];
+    setCurrentSelectedColors: (colors: any[]) => void;
+}
+const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphereProps) => {
     const [selectedColor, setSelectedColor] = useState<THREE.Color | null>(null);
     const [selectedSize, setSelectedSize] = useState(0.085);
     const [selectedPosition, setSelectedPosition] = useState<THREE.Vector3 | null>(null);
@@ -56,6 +60,11 @@ const CIESphere = () => {
     const [tolerance, setTolerance] = useState(0.1);
     const [tableau_test, setParsedData] = useState<ColorEntry[] | null>(null);
     const [selectedColorants, setSelectedColorants] = useState<ColorEntry[]>([]);
+
+    // Update parent state when selectedColorants changes
+    useEffect(() => {
+        setCurrentSelectedColors(selectedColorants.map(x => ({ ...x })));
+    }, [selectedColorants, setCurrentSelectedColors]);
 
     const points = useMemo(() => {
         const spheres: { position: [number, number, number]; color: THREE.Color }[] = [];
@@ -156,7 +165,8 @@ const CIESphere = () => {
         points[960].color,
         points[209].color,
     ];
-
+    
+    console.log(current_selectedColors.length);
     return (
         <>
             <div
@@ -177,7 +187,7 @@ const CIESphere = () => {
                             className="ml-2"
                             aria-label=".5a"
                             checked={seeAllColorants}
-                            onClick={() => setSeeAllColorants((prev) => !prev)}
+                            onChange={() => setSeeAllColorants((prev) => !prev)}
                         />
                     )}
                     <br />
@@ -224,7 +234,7 @@ const CIESphere = () => {
                                 max={0.15}
                                 step={0.005}
                                 value={selectedSize}
-                                onChange={(e) => setSelectedSize(parseFloat(e.target.value))}
+                                onClick={(e) => setSelectedSize(parseFloat(e.target.value))}
                                 style={{ width: '100%' }}
                             />
                         </>
@@ -381,16 +391,23 @@ const CIESphere = () => {
                             });
                             console.log('gradStops: ', gradientStops);
                             return (
-                                <div className="flex flex-row m-2 h-[2rem] rounded-md">
+                                <div
+                                    key={String(id_select) + '_' + String(i)}
+                                    className="flex flex-row m-2 h-[2rem] rounded-md"
+                                >
                                     <button
                                         className="mr-2"
                                         onClick={(e) => {
                                             console.log('X');
                                             setSelectedColorants((prev) => {
                                                 if (prev.includes(id_select)) {
-                                                    return prev.filter((id) => id !== id_select);
+                                                    const new_prev = prev.filter((id) => id !== id_select);
+                                                    return new_prev
+
                                                 }
+                                                current_selectedColors= prev.map( x => { return {...x}} )
                                                 return prev;
+                                                
                                             });
                                         }}
                                     >
@@ -400,7 +417,7 @@ const CIESphere = () => {
                                             width="16"
                                             height="16"
                                             fill="red"
-                                            class="bi bi-trash-fill"
+                                            className="bi bi-trash-fill"
                                             viewBox="0 0 16 16"
                                         >
                                             <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5M8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5m3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0" />

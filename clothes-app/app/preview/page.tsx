@@ -1,5 +1,6 @@
 'use client';
 
+import { load_image } from '@/actions/image';
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -8,15 +9,6 @@ import { TessellateModifier } from 'three/examples/jsm/Addons.js';
 let isLightSelected = false;
 let cvs;
 let ctx: CanvasRenderingContext2D;
-
-function load_image(src: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = src;
-    });
-}
 
 const ThreeScene: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);

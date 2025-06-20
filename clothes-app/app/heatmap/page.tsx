@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
+import { load_image } from '@/actions/image';
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
 let cvs;
 let ctx: CanvasRenderingContext2D;
@@ -70,182 +72,265 @@ const ThreeScene: React.FC = () => {
     }, [selectedSize]);
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(
-                75,
-                window.innerWidth / window.innerHeight,
-                0.001,
-                1000
-            );
-            const renderer = new THREE.WebGLRenderer({ alpha: true });
-            scene.backgroundIntensity = 1;
+        async function run() {
+            if (typeof window !== 'undefined') {
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(
+                    75,
+                    window.innerWidth / window.innerHeight,
+                    0.001,
+                    1000
+                );
+                const renderer = new THREE.WebGLRenderer({ alpha: true });
+                scene.backgroundIntensity = 1;
 
-            renderer.setSize(
-                containerRef.current?.clientWidth ?? 0,
-                containerRef.current?.clientHeight ?? 0
-            );
+                renderer.setSize(
+                    containerRef.current?.clientWidth ?? 0,
+                    containerRef.current?.clientHeight ?? 0
+                );
 
-            containerRef.current?.appendChild(renderer.domElement);
-            camera.position.z = 5;
+                containerRef.current?.appendChild(renderer.domElement);
+                camera.position.z = 5;
 
-            const scale = { x: 1, y: 1 };
+                const scale = { x: 1, y: 1 };
 
-            cvs = document.createElement('canvas');
-            cvs.width = 1024;
-            cvs.height = 1024;
-            ctx = cvs.getContext('2d') as CanvasRenderingContext2D;
+                cvs = document.createElement('canvas');
+                cvs.width = 1024;
+                cvs.height = 1024;
+                ctx = cvs.getContext('2d') as CanvasRenderingContext2D;
 
-            ctx.lineJoin = ctx.lineCap = 'round';
-            ctx.globalCompositeOperation = 'lighten';
+                ctx.lineJoin = ctx.lineCap = 'round';
+                ctx.globalCompositeOperation = 'lighten';
 
-            // ctx.fillStyle = '#000000';
-            ctx.clearRect(0, 0, cvs.width, cvs.height);
+                // ctx.fillStyle = '#000000';
+                ctx.clearRect(0, 0, cvs.width, cvs.height);
 
-            const heatmap_texture = new THREE.CanvasTexture(cvs);
-            heatmap_texture.wrapS = THREE.RepeatWrapping;
-            heatmap_texture.wrapT = THREE.RepeatWrapping;
-            heatmap_texture.repeat.set(scale.x, scale.y);
+                const heatmap_texture = new THREE.CanvasTexture(cvs);
+                heatmap_texture.wrapS = THREE.RepeatWrapping;
+                heatmap_texture.wrapT = THREE.RepeatWrapping;
+                heatmap_texture.repeat.set(scale.x, scale.y);
 
-            const sphere_geometry = new THREE.SphereGeometry(0.7);
-            // const material = new THREE.MeshStandardMaterial({
-            //     map: heatmap_texture,
-            // });
-            const material = new THREE.ShaderMaterial({
-                uniforms: {
-                    uTexture: { type: 't', value: heatmap_texture },
-                },
-                vertexShader: heat_vert,
-                fragmentShader: heat_frag,
-            });
+                // const mesh_geometry = new THREE.SphereGeometry(0.7);
+                // const mesh = new THREE.Mesh(mesh_geometry, material);
 
-            const controls = new OrbitControls(camera, renderer.domElement);
-            controls.mouseButtons = {
-                LEFT: undefined,
-                RIGHT: THREE.MOUSE.ROTATE,
-                MIDDLE: THREE.MOUSE.DOLLY,
-            };
+                const material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        uTexture: { type: 't', value: heatmap_texture },
+                    },
+                    vertexShader: heat_vert,
+                    fragmentShader: heat_frag,
+                });
 
-            const sphere = new THREE.Mesh(sphere_geometry, material);
-
-            const light = new THREE.AmbientLight(0xffffff); // soft white light
-            scene.add(light);
-
-            scene.add(sphere);
-
-            // Add raycaster and mouse logic here
-            const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2();
-
-            function intersect(): THREE.Vector2 | undefined {
-                const intersects = raycaster.intersectObject(sphere, true);
-                if (intersects.length == 0) return undefined;
-                const uv = intersects[0].uv as THREE.Vector2;
-                return new THREE.Vector2(uv.x, 1 - uv.y);
-            }
-
-            function on_pointer_move(event: MouseEvent) {
-                if (!renderer.domElement) return;
-                const rect = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-                raycaster.setFromCamera(mouse, camera);
-
-                if (painting) {
-                    const uv_ts = intersect();
-                    if (uv_ts == undefined) return;
-
-                    let dist = distanceBetween(last_uv, uv_ts);
-                    let angle = angleBetween(last_uv, uv_ts);
-                    if (dist > 0.7) {
-                        last_uv = uv_ts;
-                        dist = distanceBetween(last_uv, uv_ts);
-                        angle = angleBetween(last_uv, uv_ts);
+                const loader = new OBJLoader();
+                const mesh = await loader.loadAsync('tshirt2.obj');
+                mesh.traverse(function (child) {
+                    if (child.isMesh) {
+                        child.material = material;
                     }
+                });
 
-                    for (let i = 0; i < dist; i += 1 / 1024) {
-                        const x = Math.round((last_uv.x + Math.sin(angle) * i) * 1024);
-                        const y = Math.round((last_uv.y + Math.cos(angle) * i) * 1024);
-                        const baseInner = 2;
-                        const baseOuter = 20;
-                        const scale = selectedSizeRef.current;
+                const boundaries_map = await load_image('./tshirt_boudaries_map.png');
+                const boundaries_map_cvs = document.createElement('canvas');
+                boundaries_map_cvs.width = boundaries_map.width;
+                boundaries_map_cvs.height = boundaries_map.height;
+                const boundaries_map_ctx = boundaries_map_cvs.getContext(
+                    '2d'
+                ) as CanvasRenderingContext2D;
+                boundaries_map_ctx.imageSmoothingEnabled = false;
+                boundaries_map_ctx.drawImage(boundaries_map, 0, 0);
+                const boundaries_map_image_data = boundaries_map_ctx.getImageData(
+                    0,
+                    0,
+                    boundaries_map.width,
+                    boundaries_map.height
+                );
 
-                        const innerRadius = baseInner * scale;
-                        const outerRadius = baseOuter * scale;
-                        console.log(
-                            x,
-                            y,
-                            2 * selectedSizeRef.current,
-                            20 * selectedSizeRef.current
-                        );
-                        draw_dot(ctx, x, y, innerRadius, outerRadius);
-                        if (x - outerRadius < 0) {
-                            draw_dot(ctx, 1024 + x, y, innerRadius, outerRadius);
-                        } else if (x + outerRadius > 1024) {
-                            draw_dot(ctx, x - 1024, y, innerRadius, outerRadius);
+                // loader.load(
+                //     'tshirt.obj',
+                //     function (object) {
+                //         mesh_geometry = object;
+                //     },
+
+                //     function (xhr) {
+                //         console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
+                //     },
+
+                //     function (error) {
+                //         console.log('An error happened');
+                //     }
+                // );
+
+                const controls = new OrbitControls(camera, renderer.domElement);
+                controls.mouseButtons = {
+                    LEFT: undefined,
+                    RIGHT: THREE.MOUSE.ROTATE,
+                    MIDDLE: THREE.MOUSE.DOLLY,
+                };
+
+                const light = new THREE.AmbientLight(0xffffff); // soft white light
+                scene.add(light);
+
+                scene.add(mesh);
+
+                // Add raycaster and mouse logic here
+                const raycaster = new THREE.Raycaster();
+                const mouse = new THREE.Vector2();
+
+                function intersect(): THREE.Vector2 | undefined {
+                    const intersects = raycaster.intersectObject(mesh, true);
+                    if (intersects.length == 0) return undefined;
+                    const uv = intersects[0].uv as THREE.Vector2;
+                    return new THREE.Vector2(uv.x, 1 - uv.y);
+                }
+
+                function on_pointer_move(event: MouseEvent) {
+                    if (!renderer.domElement) return;
+                    const rect = renderer.domElement.getBoundingClientRect();
+                    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                    raycaster.setFromCamera(mouse, camera);
+
+                    if (painting) {
+                        const uv_ts = intersect();
+                        if (uv_ts == undefined) return;
+
+                        let dist = distanceBetween(last_uv, uv_ts);
+                        let angle = angleBetween(last_uv, uv_ts);
+                        if (dist > 0.7) {
+                            last_uv = uv_ts;
+                            dist = distanceBetween(last_uv, uv_ts);
+                            angle = angleBetween(last_uv, uv_ts);
                         }
+
+                        const get_index = (
+                            x: number,
+                            y: number,
+                            w: number = 1024,
+                            bpp: number = 4
+                        ): number => {
+                            const red = (y * w + x) * bpp;
+                            return red;
+                        };
+
+                        let goes_outside = false;
+
+                        for (let i = 0; i < dist; i += 1 / 1024) {
+                            const x = Math.round(
+                                (last_uv.x + Math.sin(angle) * i) * boundaries_map.width
+                            );
+                            const y = Math.round(
+                                (last_uv.y + Math.cos(angle) * i) * boundaries_map.height
+                            );
+                            const d =
+                                boundaries_map_image_data.data[
+                                    get_index(
+                                        x,
+                                        y,
+                                        boundaries_map.width,
+                                        boundaries_map_image_data.data.length /
+                                            (boundaries_map_image_data.width *
+                                                boundaries_map_image_data.height)
+                                    )
+                                ];
+
+                            if (d < 128) {
+                                goes_outside = true;
+                                break;
+                            }
+                        }
+                        for (let i = 0; i < dist; i += 1 / 1024) {
+                            const x = Math.round(
+                                (last_uv.x + Math.sin(angle) * i) * boundaries_map.width
+                            );
+                            const y = Math.round(
+                                (last_uv.y + Math.cos(angle) * i) * boundaries_map.height
+                            );
+
+                            const baseInner = 2;
+                            const baseOuter = 20;
+                            const scale = selectedSizeRef.current;
+
+                            const innerRadius = baseInner * scale;
+                            const outerRadius = baseOuter * scale;
+
+                            const d =
+                                boundaries_map_image_data.data[
+                                    get_index(
+                                        x,
+                                        y,
+                                        boundaries_map.width,
+                                        boundaries_map_image_data.data.length /
+                                            (boundaries_map_image_data.width *
+                                                boundaries_map_image_data.height)
+                                    )
+                                ];
+
+                            draw_dot(ctx, x, y, innerRadius, outerRadius);
+                            if (x - outerRadius < 0) {
+                                draw_dot(ctx, 1024 + x, y, innerRadius, outerRadius);
+                            } else if (x + outerRadius > 1024) {
+                                draw_dot(ctx, x - 1024, y, innerRadius, outerRadius);
+                            }
+
+                            if (goes_outside) break;
+                        }
+                        last_uv = uv_ts;
+
+                        if (material.uniforms.uTexture)
+                            material.uniforms.uTexture.value.needsUpdate = true;
                     }
-
-                    // ctx.strokeStyle = '#ffffff';
-                    // ctx.moveTo(last_uv.x * 1024, last_uv.y * 1024);
-                    // ctx.lineTo(uv_ts.x * 1024, uv_ts.y * 1024);
-                    // ctx.stroke();
-
-                    last_uv = uv_ts;
-
-                    if (material.uniforms.uTexture)
-                        material.uniforms.uTexture.value.needsUpdate = true;
                 }
-            }
 
-            function on_pointer_down(event: MouseEvent) {
-                if (event.button == 0) {
-                    painting = true;
-                    const tmp_uv = intersect();
-                    if (tmp_uv !== undefined) last_uv = tmp_uv;
+                function on_pointer_down(event: MouseEvent) {
+                    if (event.button == 0) {
+                        painting = true;
+                        const tmp_uv = intersect();
+                        if (tmp_uv !== undefined) last_uv = tmp_uv;
+                    }
                 }
-            }
 
-            function on_pointer_up(_event: MouseEvent) {
-                painting = false;
-            }
-            // Render the scene and camera
-            renderer.render(scene, camera);
-
-            // Add this function inside the useEffect hook
-            const renderScene = (t: number) => {
-                controls.update();
+                function on_pointer_up(_event: MouseEvent) {
+                    painting = false;
+                }
+                // Render the scene and camera
                 renderer.render(scene, camera);
-                requestAnimationFrame(renderScene);
-            };
 
-            // Call the renderScene function to start the animation loop
-            renderScene(0);
+                // Add this function inside the useEffect hook
+                const renderScene = (t: number) => {
+                    controls.update();
+                    renderer.render(scene, camera);
+                    requestAnimationFrame(renderScene);
+                };
 
-            const handleResize = () => {
-                const width = window.innerWidth;
-                const height = window.innerHeight;
+                // Call the renderScene function to start the animation loop
+                renderScene(0);
 
-                camera.aspect = width / height;
-                camera.updateProjectionMatrix();
+                const handleResize = () => {
+                    const width = window.innerWidth;
+                    const height = window.innerHeight;
 
-                renderer.setSize(width, height);
-            };
+                    camera.aspect = width / height;
+                    camera.updateProjectionMatrix();
 
-            window.addEventListener('resize', handleResize);
-            renderer.domElement.addEventListener('pointermove', on_pointer_move);
-            renderer.domElement.addEventListener('pointerdown', on_pointer_down);
-            renderer.domElement.addEventListener('pointerup', on_pointer_up);
+                    renderer.setSize(width, height);
+                };
 
-            // Clean up the event listener when the component is unmounted
-            return () => {
-                window.removeEventListener('resize', handleResize);
-                renderer.domElement.removeEventListener('pointermove', on_pointer_move);
-                renderer.domElement.removeEventListener('pointerdown', on_pointer_down);
-                renderer.domElement.removeEventListener('pointerup', on_pointer_up);
-            };
+                window.addEventListener('resize', handleResize);
+                renderer.domElement.addEventListener('pointermove', on_pointer_move);
+                renderer.domElement.addEventListener('pointerdown', on_pointer_down);
+                renderer.domElement.addEventListener('pointerup', on_pointer_up);
+
+                // Clean up the event listener when the component is unmounted
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                    renderer.domElement.removeEventListener('pointermove', on_pointer_move);
+                    renderer.domElement.removeEventListener('pointerdown', on_pointer_down);
+                    renderer.domElement.removeEventListener('pointerup', on_pointer_up);
+                };
+            }
         }
+        run();
     }, []);
     return (
         <div className="flex flex-col h-full w-full" style={{ height: '100dvh' }}>

@@ -10,7 +10,8 @@ use image::{DynamicImage, Pixel, Rgb};
 use indicatif::ParallelProgressIterator;
 use itertools::Itertools;
 use nalgebra::*;
-use noise::NoiseFn;
+// use noise::NoiseFn;
+use noise::{NoiseFn, Perlin, Seedable, core::perlin::perlin_2d, utils::NoiseMapBuilder};
 use texture::*;
 use wire::{Material, Wire, WireNode};
 
@@ -143,6 +144,18 @@ impl Material for SimpleColoredMaterial {
     }
 }
 
+fn periodic_noise_2d(perlin: &Perlin, x: f64, y: f64, period: f64) -> f64 {
+    let nx = (x / period) * std::f64::consts::TAU; // TAU = 2π
+    let ny = (y / period) * std::f64::consts::TAU;
+
+    let x1 = nx.cos();
+    let x2 = nx.sin();
+    let y1 = ny.cos();
+    let y2 = ny.sin();
+
+    perlin.get([x1, x2, y1, y2])
+}
+
 #[allow(unused)]
 fn generate_tissage(world: &mut World) {
     const COUNT_X: u32 = 24;
@@ -150,13 +163,19 @@ fn generate_tissage(world: &mut World) {
 
     let perlin_x: noise::Perlin = noise::Perlin::new(1234);
     let perlin_y: noise::Perlin = noise::Perlin::new(1234 + 42);
+
+    let g_perlin = Perlin::new(42);
+    // Wrap it in a periodic noise adapter
     // let perlin_w: noise::Perlin = noise::Perlin::new(1234 + 69);
     let perlin_scale: f64 = 10.;
-    let perlin_strength: f64 = 0.005;
+    let perlin_strength: f64 = 0.02;
 
     let scale_x = 1. / (COUNT_X as f32);
     let scale_y = 1. / (COUNT_Y as f32);
     const RES: u32 = 8;
+
+    let w_map = |w: f32| 0.018 + 0.001 * w as f32;
+
     for x in 0..=COUNT_X {
         let mut nodes: Vec<WireNode> = vec![];
         for y in 0..=COUNT_Y / 2 {
@@ -168,13 +187,48 @@ fn generate_tissage(world: &mut World) {
                 let y_inter = y_base + y_interm * 2. * scale_x;
                 let x_pos = x as f32 * scale_x;
                 let y_pos = y_inter;
+                let x_pos_noise = (if x == COUNT_X { 0. } else { x_pos });
+                let y_index = y * RES + i;
+                let y_pos_noise = if y_index == (COUNT_Y / 2 * RES + RES - 1) {
+                    0.
+                } else {
+                    y_pos
+                };
+
                 let offset = perlin_strength
                     * Vector2::new(
-                        perlin_x.get([perlin_scale * x_pos as f64, perlin_scale * y_pos as f64]),
-                        perlin_y.get([perlin_scale * x_pos as f64, perlin_scale * y_pos as f64]),
+                        // perlin_x.get([
+                        //     perlin_scale * x_pos_noise as f64,
+                        //     perlin_scale * y_pos_noise as f64,
+                        // ]),
+                        // perlin_y.get([
+                        //     perlin_scale * x_pos_noise as f64,
+                        //     perlin_scale * y_pos_noise as f64,
+                        // ]),
+                        periodic_noise_2d(
+                            &perlin_x,
+                            perlin_scale * x_pos as f64,
+                            perlin_scale * y_pos as f64,
+                            perlin_scale,
+                        ),
+                        periodic_noise_2d(
+                            &perlin_y,
+                            perlin_scale * x_pos as f64,
+                            perlin_scale * y_pos as f64,
+                            perlin_scale,
+                        ),
                     );
-                let w = perlin_x.get([perlin_scale * x_pos as f64, perlin_scale * y_pos as f64]);
-                let w = 0.015 + 0.001 * w as f32;
+                let w = periodic_noise_2d(
+                    &perlin_x,
+                    perlin_scale * x_pos as f64,
+                    perlin_scale * y_pos as f64,
+                    perlin_scale,
+                );
+                // let w = perlin_x.get([
+                //     perlin_scale * x_pos_noise as f64,
+                //     perlin_scale * y_pos_noise as f64,
+                // ]);
+                let w = w_map(w as f32);
                 let mut node_index: usize = ((x % COUNT_X)
                     + ((x % COUNT_X) % 2) * COUNT_X
                     + (y % (COUNT_Y / 2)) * COUNT_X * 2)
@@ -244,12 +298,51 @@ fn generate_tissage(world: &mut World) {
 
                 let offset = perlin_strength
                     * Vector2::new(
-                        perlin_x.get([perlin_scale * x_pos as f64, perlin_scale * y_pos as f64]),
-                        perlin_y.get([perlin_scale * x_pos as f64, perlin_scale * y_pos as f64]),
+                        periodic_noise_2d(
+                            &perlin_x,
+                            perlin_scale * x_pos as f64,
+                            perlin_scale * y_pos as f64,
+                            perlin_scale,
+                        ),
+                        periodic_noise_2d(
+                            &perlin_y,
+                            perlin_scale * x_pos as f64,
+                            perlin_scale * y_pos as f64,
+                            perlin_scale,
+                        ),
+                        // perlin_x.get([
+                        //     perlin_scale * x_pos_noise as f64,
+                        //     perlin_scale * y_pos_noise as f64,
+                        // ]
+                        // ),
+                        // perlin_y.get([
+                        //     perlin_scale * x_pos_noise as f64,
+                        //     perlin_scale * y_pos_noise as f64,
+                        // ]),
                     );
+                // let offset = perlin_strength
+                //     * Vector2::new(
+                //         perlin_x.get([
+                //             perlin_scale * x_pos_noise as f64,
+                //             perlin_scale * y_pos_noise as f64,
+                //         ]),
+                //         perlin_y.get([
+                //             perlin_scale * x_pos_noise as f64,
+                //             perlin_scale * y_pos_noise as f64,
+                //         ]),
+                //     );
 
-                let w = perlin_x.get([perlin_scale * x_pos as f64, perlin_scale * y_pos as f64]);
-                let w = 0.015 + 0.001 * w as f32;
+                // let w = perlin_x.get([
+                //     perlin_scale * x_pos_noise as f64,
+                //     perlin_scale * y_pos_noise as f64,
+                // ]);
+                let w = periodic_noise_2d(
+                    &perlin_x,
+                    perlin_scale * x_pos as f64,
+                    perlin_scale * y_pos as f64,
+                    perlin_scale,
+                );
+                let w = w_map(w as f32);
 
                 // let node_index: usize = 2 * (24 * 2 * y as usize + x as usize);
                 // let mut node_index: usize =
@@ -374,24 +467,24 @@ fn save_pbr(world: &mut World) {
         &str,
     )> = vec![
         (albedo, albedo_function, None, "albedo.png"),
-        // (
-        //     height,
-        //     height_function,
-        //     Some(map_texture_normalize),
-        //     "height.png",
-        // ),
-        // (
-        //     normal,
-        //     normal_function,
-        //     Some(map_texture_range),
-        //     "normal.png",
-        // ),
-        // (
-        //     alpha,
-        //     alpha_function,
-        //     Some(map_texture_normalize),
-        //     "alpha.png",
-        // ),
+        (
+            height,
+            height_function,
+            Some(map_texture_normalize),
+            "height.png",
+        ),
+        (
+            normal,
+            normal_function,
+            Some(map_texture_range),
+            "normal.png",
+        ),
+        (
+            alpha,
+            alpha_function,
+            Some(map_texture_normalize),
+            "alpha.png",
+        ),
     ];
 
     textures

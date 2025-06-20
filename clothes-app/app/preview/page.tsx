@@ -32,7 +32,7 @@ const ThreeScene: React.FC = () => {
                 containerRef.current?.appendChild(renderer.domElement);
                 camera.position.z = 5;
 
-                const scale = { x: 1, y: 1 };
+                const scale = { x: 10, y: 10 };
 
                 const normal = new THREE.TextureLoader().load('./default_cloth/normal.png');
                 normal.wrapS = THREE.RepeatWrapping;
@@ -49,6 +49,14 @@ const ThreeScene: React.FC = () => {
                 height.magFilter = THREE.NearestFilter;
                 height.flipY = false;
                 height.repeat.set(scale.x, scale.y);
+
+                const alpha = new THREE.TextureLoader().load('./default_cloth/alpha.png');
+                alpha.wrapS = THREE.RepeatWrapping;
+                alpha.wrapT = THREE.RepeatWrapping;
+                alpha.minFilter = THREE.NearestFilter;
+                alpha.magFilter = THREE.NearestFilter;
+                alpha.flipY = false;
+                alpha.repeat.set(scale.x, scale.y);
 
                 let geometry = new THREE.PlaneGeometry();
                 const tessellateModifier = new TessellateModifier(8, 2);
@@ -78,7 +86,8 @@ const ThreeScene: React.FC = () => {
                     load_image('./default_cloth/albedo.png'),
                     load_image('./pixels2.png'),
                     load_image('./default_cloth/ids.png'),
-                ]).then(([base_color, pixels, ids]) => {
+                    load_image('./default_cloth/height.png'),
+                ]).then(([base_color, pixels, ids, ao]) => {
                     const base_color_cvs = document.createElement('canvas');
                     base_color_cvs.width = base_color.width;
                     base_color_cvs.height = base_color.height;
@@ -93,6 +102,14 @@ const ThreeScene: React.FC = () => {
                         base_color.width,
                         base_color.height
                     );
+
+                    const ao_cvs = document.createElement('canvas');
+                    ao_cvs.width = ao.width;
+                    ao_cvs.height = ao.height;
+                    const ao_ctx = ao_cvs.getContext('2d') as CanvasRenderingContext2D;
+                    ao_ctx.imageSmoothingEnabled = false;
+                    ao_ctx.drawImage(ao, 0, 0);
+                    const ao_image_data = ao_ctx.getImageData(0, 0, ao.width, ao.height);
 
                     const pixels_cvs = document.createElement('canvas');
                     pixels_cvs.width = pixels.width;
@@ -115,12 +132,6 @@ const ThreeScene: React.FC = () => {
                     ids_ctx.drawImage(ids, 0, 0);
                     const ids_image_data = ids_ctx.getImageData(0, 0, ids.width, ids.height);
 
-                    console.log(base_color.width, base_color.height);
-                    console.log(pixels.width, pixels.height);
-                    console.log(ids.width, ids.height);
-
-                    console.log(ids_image_data.data);
-
                     // ctx.drawImage(pixels, 0, 0, 1024, 1024);
                     for (let x = 0; x < 1024; x += 1) {
                         for (let y = 0; y < 1024; y += 1) {
@@ -138,27 +149,25 @@ const ThreeScene: React.FC = () => {
                             const pixel_index = get_index(indexed_x, indexed_y, pixels_cvs.width);
                             const base_color_index = get_index(x, y);
 
-                            // const r = 255 * (indexed_x / 24);
-                            // const g = 255 * (indexed_y / 24);
-                            // const b = 0;
-                            const r = pixels_image_data.data[pixel_index + 0];
-                            const g = pixels_image_data.data[pixel_index + 1];
-                            const b = pixels_image_data.data[pixel_index + 2];
-                            // const r =
-                            //     pixels_image_data.data[pixel_index + 0] *
-                            //     base_color_image_data.data[base_color_index + 0];
-                            // const g =
-                            //     pixels_image_data.data[pixel_index + 1] *
-                            //     base_color_image_data.data[base_color_index + 1];
-                            // const b =
-                            //     pixels_image_data.data[pixel_index + 2] *
-                            //     base_color_image_data.data[base_color_index + 2];
-                            // const a =
-                            //     pixels_image_data.data[pixel_index + 3] *
-                            //     base_color_image_data.data[base_color_index + 3];
-                            ctx_image_data.data[idx + 0] = r;
-                            ctx_image_data.data[idx + 1] = g;
-                            ctx_image_data.data[idx + 2] = b;
+                            const r =
+                                (pixels_image_data.data[pixel_index + 0] *
+                                    base_color_image_data.data[base_color_index + 0] *
+                                    ao_image_data.data[base_color_index + 0]) /
+                                (255 * 255 * 255);
+                            const g =
+                                (pixels_image_data.data[pixel_index + 1] *
+                                    base_color_image_data.data[base_color_index + 1] *
+                                    ao_image_data.data[base_color_index + 1]) /
+                                (255 * 255 * 255);
+                            const b =
+                                (pixels_image_data.data[pixel_index + 2] *
+                                    base_color_image_data.data[base_color_index + 2] *
+                                    ao_image_data.data[base_color_index + 2]) /
+                                (255 * 255 * 255);
+
+                            ctx_image_data.data[idx + 0] = r * 255;
+                            ctx_image_data.data[idx + 1] = g * 255;
+                            ctx_image_data.data[idx + 2] = b * 255;
                             ctx_image_data.data[idx + 3] = 255;
                         }
                     }
@@ -170,8 +179,10 @@ const ThreeScene: React.FC = () => {
                 const sphere_geometry = new THREE.SphereGeometry(0.7);
                 const material = new THREE.MeshStandardMaterial({
                     map: albedo,
+                    alphaMap: alpha,
                     normalMap: normal,
                     bumpMap: height,
+                    transparent: false,
                 });
                 const sphere_material = new THREE.MeshPhysicalMaterial({ color: 0x0000ff });
                 const cube = new THREE.Mesh(geometry, material);
@@ -264,7 +275,6 @@ const ThreeScene: React.FC = () => {
 export default function Home() {
     return (
         <div className="h-dvh flex flex-col">
-            <div>Hello, world!</div>
             <ThreeScene />
         </div>
     );

@@ -44,9 +44,26 @@ function angleBetween(point1: THREE.Vector2, point2: THREE.Vector2): number {
     return Math.atan2(point2.x - point1.x, point2.y - point1.y);
 }
 
+function draw_dot(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    inner_radius: number,
+    outer_radius: number
+) {
+    const radgrad = ctx.createRadialGradient(x, y, inner_radius, x, y, outer_radius);
+
+    radgrad.addColorStop(0, '#ffffff');
+    radgrad.addColorStop(inner_radius / outer_radius, '#7f7f7F');
+    radgrad.addColorStop(1, '#000000');
+
+    ctx.fillStyle = radgrad;
+    ctx.fillRect(x - outer_radius, y - outer_radius, outer_radius * 2, outer_radius * 2);
+}
+
 const ThreeScene: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
-    let [selectedSize, setSelectedSize] = useState(1);
+    const [selectedSize, setSelectedSize] = useState(1);
     const selectedSizeRef = useRef(selectedSize);
     useEffect(() => {
         selectedSizeRef.current = selectedSize;
@@ -139,8 +156,13 @@ const ThreeScene: React.FC = () => {
                     const uv_ts = intersect();
                     if (uv_ts == undefined) return;
 
-                    const dist = distanceBetween(last_uv, uv_ts);
-                    const angle = angleBetween(last_uv, uv_ts);
+                    let dist = distanceBetween(last_uv, uv_ts);
+                    let angle = angleBetween(last_uv, uv_ts);
+                    if (dist > 0.7) {
+                        last_uv = uv_ts;
+                        dist = distanceBetween(last_uv, uv_ts);
+                        angle = angleBetween(last_uv, uv_ts);
+                    }
 
                     for (let i = 0; i < dist; i += 1 / 1024) {
                         const x = Math.round((last_uv.x + Math.sin(angle) * i) * 1024);
@@ -151,14 +173,18 @@ const ThreeScene: React.FC = () => {
 
                         const innerRadius = baseInner * scale;
                         const outerRadius = baseOuter * scale;
-                        const radgrad = ctx.createRadialGradient(x, y,  innerRadius, x, y, outerRadius);
-                        console.log(x, y, 2*selectedSizeRef.current, 20*selectedSizeRef.current);
-                        radgrad.addColorStop(0, '#ffffff');
-                        radgrad.addColorStop(innerRadius/outerRadius, '#7f7f7F');
-                        radgrad.addColorStop(1, '#000000');
-
-                        ctx.fillStyle = radgrad;
-                        ctx.fillRect(x - outerRadius, y - outerRadius, outerRadius * 2, outerRadius * 2);
+                        console.log(
+                            x,
+                            y,
+                            2 * selectedSizeRef.current,
+                            20 * selectedSizeRef.current
+                        );
+                        draw_dot(ctx, x, y, innerRadius, outerRadius);
+                        if (x - outerRadius < 0) {
+                            draw_dot(ctx, 1024 + x, y, innerRadius, outerRadius);
+                        } else if (x + outerRadius > 1024) {
+                            draw_dot(ctx, x - 1024, y, innerRadius, outerRadius);
+                        }
                     }
 
                     // ctx.strokeStyle = '#ffffff';
@@ -214,13 +240,10 @@ const ThreeScene: React.FC = () => {
 
             // Clean up the event listener when the component is unmounted
             return () => {
-                
-
                 window.removeEventListener('resize', handleResize);
                 renderer.domElement.removeEventListener('pointermove', on_pointer_move);
                 renderer.domElement.removeEventListener('pointerdown', on_pointer_down);
                 renderer.domElement.removeEventListener('pointerup', on_pointer_up);
-                
             };
         }
     }, []);
@@ -258,14 +281,9 @@ const ThreeScene: React.FC = () => {
 };
 
 export default function Home() {
-    
-
     return (
         <div className="h-dvh flex flex-col">
-
-            
-                <ThreeScene/>
-        
+            <ThreeScene />
         </div>
     );
 }

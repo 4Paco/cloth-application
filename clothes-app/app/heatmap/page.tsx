@@ -9,7 +9,6 @@ let cvs;
 let ctx: CanvasRenderingContext2D;
 let painting = false;
 let last_uv: THREE.Vector2 = new THREE.Vector2();
-
 const heat_vert = `
 varying vec2 vUv;
 
@@ -47,6 +46,11 @@ function angleBetween(point1: THREE.Vector2, point2: THREE.Vector2): number {
 
 const ThreeScene: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
+    let [selectedSize, setSelectedSize] = useState(1);
+    const selectedSizeRef = useRef(selectedSize);
+    useEffect(() => {
+        selectedSizeRef.current = selectedSize;
+    }, [selectedSize]);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -58,7 +62,6 @@ const ThreeScene: React.FC = () => {
                 1000
             );
             const renderer = new THREE.WebGLRenderer({ alpha: true });
-
             scene.backgroundIntensity = 1;
 
             renderer.setSize(
@@ -110,6 +113,7 @@ const ThreeScene: React.FC = () => {
 
             const light = new THREE.AmbientLight(0xffffff); // soft white light
             scene.add(light);
+
             scene.add(sphere);
 
             // Add raycaster and mouse logic here
@@ -141,15 +145,20 @@ const ThreeScene: React.FC = () => {
                     for (let i = 0; i < dist; i += 1 / 1024) {
                         const x = Math.round((last_uv.x + Math.sin(angle) * i) * 1024);
                         const y = Math.round((last_uv.y + Math.cos(angle) * i) * 1024);
+                        const baseInner = 2;
+                        const baseOuter = 20;
+                        const scale = selectedSizeRef.current;
 
-                        const radgrad = ctx.createRadialGradient(x, y, 2, x, y, 20);
-
+                        const innerRadius = baseInner * scale;
+                        const outerRadius = baseOuter * scale;
+                        const radgrad = ctx.createRadialGradient(x, y,  innerRadius, x, y, outerRadius);
+                        console.log(x, y, 2*selectedSizeRef.current, 20*selectedSizeRef.current);
                         radgrad.addColorStop(0, '#ffffff');
-                        radgrad.addColorStop(0.5, '#7f7f7F');
+                        radgrad.addColorStop(innerRadius/outerRadius, '#7f7f7F');
                         radgrad.addColorStop(1, '#000000');
 
                         ctx.fillStyle = radgrad;
-                        ctx.fillRect(x - 20, y - 20, 40, 40);
+                        ctx.fillRect(x - outerRadius, y - outerRadius, outerRadius * 2, outerRadius * 2);
                     }
 
                     // ctx.strokeStyle = '#ffffff';
@@ -175,7 +184,6 @@ const ThreeScene: React.FC = () => {
             function on_pointer_up(_event: MouseEvent) {
                 painting = false;
             }
-
             // Render the scene and camera
             renderer.render(scene, camera);
 
@@ -206,20 +214,58 @@ const ThreeScene: React.FC = () => {
 
             // Clean up the event listener when the component is unmounted
             return () => {
+                
+
                 window.removeEventListener('resize', handleResize);
                 renderer.domElement.removeEventListener('pointermove', on_pointer_move);
                 renderer.domElement.removeEventListener('pointerdown', on_pointer_down);
                 renderer.domElement.removeEventListener('pointerup', on_pointer_up);
+                
             };
         }
     }, []);
-    return <div className="flex-1" ref={containerRef} />;
+    return (
+        <div className="flex flex-col h-full w-full" style={{ height: '100dvh' }}>
+            <div
+                className="flex-1"
+                ref={containerRef}
+                style={{
+                    width: '100%',
+                    aspectRatio: '1 / 1',
+                    maxWidth: '100vw',
+                    maxHeight: 'calc(100dvh - 80px)',
+                    margin: '0 auto',
+                }}
+            ></div>
+            <div
+                className="w-full px-4 py-2 bg-white/80 backdrop-blur fixed bottom-0 left-0 flex flex-col items-center"
+                style={{ zIndex: 10 }}
+            >
+                <label className="mb-1">Drawing size</label>
+                <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={0.05}
+                    value={selectedSize}
+                    onChange={(e) => setSelectedSize(parseFloat(e.target.value))}
+                    style={{ width: '100%', maxWidth: 400 }}
+                />
+                <span>{selectedSize.toFixed(1)}</span>
+            </div>
+        </div>
+    );
 };
 
 export default function Home() {
+    
+
     return (
         <div className="h-dvh flex flex-col">
-            <ThreeScene />
+
+            
+                <ThreeScene/>
+        
         </div>
     );
 }

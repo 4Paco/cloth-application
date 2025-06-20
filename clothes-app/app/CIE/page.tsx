@@ -55,14 +55,19 @@ function TextureButton() {
 
 export default function Home() {
     const [currentSelectedColors, setCurrentSelectedColors] = useState<ColorEntry[]>([]);
-    console.log('currentSelectedColors', currentSelectedColors);
     return (
         <main style={{ width: '100vw', height: '100vh', background: 'black' }}>
             <LogInButton />
             <MainButton />
+            <div
+            style={{
+                visibility: currentSelectedColors.length >= 1 ? 'visible' : 'hidden',
+            }}
+            >
+            <TextureButton />
+            </div>
             <CIESphere current_selectedColors={currentSelectedColors} setCurrentSelectedColors={setCurrentSelectedColors} />
-
-            {currentSelectedColors.length >= 1 && <TextureButton />}
+            
         </main>
     );
 }

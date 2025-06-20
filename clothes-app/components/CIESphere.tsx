@@ -52,6 +52,7 @@ const CIESphere = () => {
     const [selectedSize, setSelectedSize] = useState(0.085);
     const [selectedPosition, setSelectedPosition] = useState<THREE.Vector3 | null>(null);
     const [colorValidated, setColorValidated] = useState(false);
+    const [seeAllColorants, setSeeAllColorants] = useState(false);
     const [tolerance, setTolerance] = useState(0.1);
     const [tableau_test, setParsedData] = useState<ColorEntry[] | null>(null);
     const [selectedColorants, setSelectedColorants] = useState<ColorEntry[]>([]);
@@ -90,18 +91,27 @@ const CIESphere = () => {
     //];
 
     const getColorantsToPlot = () => {
-        if (!selectedPosition) return [];
+        let colorants_tolerated;
+        if (seeAllColorants) {
+            colorants_tolerated = tableau_test.filter((colorant) => {
+                if (colorant.hours != 0) return false;
+                return true;
+            });
+        } else {
+            if (!selectedPosition) return [];
+            else {
+                colorants_tolerated = tableau_test.filter((colorant) => {
+                    if (colorant.hours != 0) return false;
 
-        const colorants_tolerated = tableau_test.filter((colorant) => {
-            if (colorant.hours != 0) return false;
-
-            const position = [colorant.a / 100, colorant.b / 100, (colorant.L - 50) / 100];
-            const distance = new THREE.Vector3(...position).distanceTo(
-                new THREE.Vector3(...selectedPosition)
-            );
-            return distance <= tolerance;
-            //return true;
-        });
+                    const position = [colorant.a / 100, colorant.b / 100, (colorant.L - 50) / 100];
+                    const distance = new THREE.Vector3(...position).distanceTo(
+                        new THREE.Vector3(...selectedPosition)
+                    );
+                    return distance <= tolerance;
+                    //return true;
+                });
+            }
+        }
 
         var to_plot = [];
         colorants_tolerated.forEach((node_0) => {
@@ -158,10 +168,20 @@ const CIESphere = () => {
                 }}
             >
                 <div style={{ width: '200px', background: '#111', padding: '1rem' }}>
-                    <h3 className="font-bold">Open your CSV file containing colors</h3>
-                    <div>
-                        <ColorButton setParsedData={setParsedData} />
-                    </div>
+                    <h3 className="font-bold">Open your CSV file containing colorants</h3>
+                    <br />
+                    <ColorButton setParsedData={setParsedData} setSeeAll={setSeeAllColorants} />
+                    {tableau_test && (
+                        <input
+                            type="checkbox"
+                            className="ml-2"
+                            aria-label=".5a"
+                            checked={seeAllColorants}
+                            onClick={() => setSeeAllColorants((prev) => !prev)}
+                        />
+                    )}
+                    <br />
+                    <br />
                     <h3>Suggested Colors</h3>
                     {suggestedColors.map((hex, i) => (
                         <div
@@ -252,97 +272,98 @@ const CIESphere = () => {
                         </>
                     )}
                 </div>
+                {tableau_test && (
+                    <Canvas
+                        id="canvas"
+                        style={{ background: 'black', flex: 1 }}
+                        camera={{ position: [0, 0, 3], fov: 75 }}
+                    >
+                        <ambientLight intensity={1.2} />
+                        <OrbitControls />
 
-                <Canvas
-                    id="canvas"
-                    style={{ background: 'black', flex: 1 }}
-                    camera={{ position: [0, 0, 3], fov: 75 }}
-                >
-                    <ambientLight intensity={1.2} />
-                    <OrbitControls />
+                        {points.map((point, idx) => (
+                            <mesh
+                                key={idx}
+                                position={point.position}
+                                onPointerDown={() => {
+                                    if (!colorValidated) {
+                                        setSelectedColor(point.color);
+                                        setSelectedPosition(new THREE.Vector3(...point.position));
+                                    }
+                                }}
+                            >
+                                <sphereGeometry
+                                    args={[
+                                        selectedColor === point.color
+                                            ? selectedSize
+                                            : pointsWithinTolerance.includes(point)
+                                            ? selectedSize * 0.7
+                                            : colorValidated
+                                            ? 0
+                                            : 0.015,
+                                        6,
+                                        6,
+                                    ]}
+                                />
+                                <meshStandardMaterial color={point.color} />
 
-                    {points.map((point, idx) => (
-                        <mesh
-                            key={idx}
-                            position={point.position}
-                            onPointerDown={() => {
-                                if (!colorValidated) {
-                                    setSelectedColor(point.color);
-                                    setSelectedPosition(new THREE.Vector3(...point.position));
-                                }
-                            }}
-                        >
-                            <sphereGeometry
-                                args={[
-                                    selectedColor === point.color
-                                        ? selectedSize
-                                        : pointsWithinTolerance.includes(point)
-                                        ? selectedSize * 0.7
-                                        : colorValidated
-                                        ? 0
-                                        : 0.015,
-                                    6,
-                                    6,
-                                ]}
-                            />
-                            <meshStandardMaterial color={point.color} />
+                                {/* Add translucent sphere if the color matches selectedColor */}
+                                {selectedColor === point.color && (
+                                    <mesh>
+                                        <sphereGeometry args={[tolerance, 16, 16]} />
+                                        <meshStandardMaterial
+                                            color={point.color}
+                                            transparent={true}
+                                            opacity={0.4}
+                                        />
+                                    </mesh>
+                                )}
+                            </mesh>
+                        ))}
+                        {colorantsFamiliesToPlot.map((array, idx) => {
+                            const startPoint = new THREE.Vector3(...array[1][array[1].length - 2]); // First point of the line
+                            const endPoint = new THREE.Vector3(...array[1][array[1].length - 1]); // Last point of the line
+                            const direction = new THREE.Vector3()
+                                .subVectors(endPoint, startPoint)
+                                .normalize();
+                            const arrowLength = 0.05;
+                            const arrowColor = 'red';
+                            const arrowHeadLength = arrowLength / 2;
 
-                            {/* Add translucent sphere if the color matches selectedColor */}
-                            {selectedColor === point.color && (
-                                <mesh>
-                                    <sphereGeometry args={[tolerance, 16, 16]} />
-                                    <meshStandardMaterial
-                                        color={point.color}
-                                        transparent={true}
-                                        opacity={0.4}
+                            return (
+                                <mesh key={String(idx) + '_' + String(idx)}>
+                                    <Line
+                                        points={array[1]}
+                                        color="white"
+                                        vertexColors={array[2]}
+                                        lineWidth={10}
+                                        onClick={() => {
+                                            setSelectedColorants((prev) => {
+                                                if (!prev.includes(array[0])) {
+                                                    return [...prev, array[0]];
+                                                }
+                                                return prev;
+                                            });
+                                        }}
+                                    />
+                                    {/* Add ArrowHelper */}
+                                    <primitive
+                                        object={
+                                            new THREE.ArrowHelper(
+                                                direction,
+                                                endPoint,
+                                                arrowLength,
+                                                arrowColor,
+                                                arrowHeadLength
+                                            )
+                                        }
                                     />
                                 </mesh>
-                            )}
-                        </mesh>
-                    ))}
-                    {colorantsFamiliesToPlot.map((array, idx) => {
-                        const startPoint = new THREE.Vector3(...array[1][array[1].length - 2]); // First point of the line
-                        const endPoint = new THREE.Vector3(...array[1][array[1].length - 1]); // Last point of the line
-                        const direction = new THREE.Vector3()
-                            .subVectors(endPoint, startPoint)
-                            .normalize();
-                        const arrowLength = 0.05;
-                        const arrowColor = 'red';
-                        const arrowHeadLength = arrowLength / 2;
-
-                        return (
-                            <mesh key={String(idx) + '_' + String(idx)}>
-                                <Line
-                                    points={array[1]}
-                                    color="white"
-                                    vertexColors={array[2]}
-                                    lineWidth={10}
-                                    onClick={() => {
-                                        setSelectedColorants((prev) => {
-                                            if (!prev.includes(array[0])) {
-                                                return [...prev, array[0]];
-                                            }
-                                            return prev;
-                                        });
-                                    }}
-                                />
-                                {/* Add ArrowHelper */}
-                                <primitive
-                                    object={
-                                        new THREE.ArrowHelper(
-                                            direction,
-                                            endPoint,
-                                            arrowLength,
-                                            arrowColor,
-                                            arrowHeadLength
-                                        )
-                                    }
-                                />
-                            </mesh>
-                        );
-                    })}
-                </Canvas>
-                {selectedColorants && (
+                            );
+                        })}
+                    </Canvas>
+                )}
+                {selectedColorants.length > 0 && (
                     <div className="flex flex-col place-content-start">
                         <h4>Ongoing selection of colorants</h4>
                         {selectedColorants.map((id_select, i) => {

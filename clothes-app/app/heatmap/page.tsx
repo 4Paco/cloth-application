@@ -2,6 +2,10 @@
 'use client';
 
 import { load_image } from '@/actions/image';
+import { Button } from '@/components/ui/button';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Slider } from '@/components/ui/slider';
+import { cn } from '@/lib/utils';
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -51,25 +55,40 @@ function draw_dot(
     x: number,
     y: number,
     inner_radius: number,
-    outer_radius: number
+    outer_radius: number,
+    tool: string
 ) {
     const radgrad = ctx.createRadialGradient(x, y, inner_radius, x, y, outer_radius);
 
-    radgrad.addColorStop(0, '#ffffff');
-    radgrad.addColorStop(inner_radius / outer_radius, '#7f7f7F');
-    radgrad.addColorStop(1, '#000000');
+    switch (tool) {
+        case 'add':
+            radgrad.addColorStop(0, '#ffffff');
+            radgrad.addColorStop(inner_radius / outer_radius, '#7f7f7F');
+            radgrad.addColorStop(1, '#000000');
+            break;
+        case 'subtract':
+        case 'remove':
+            radgrad.addColorStop(0, '#000000');
+            radgrad.addColorStop(inner_radius / outer_radius, '#7f7f7F');
+            radgrad.addColorStop(1, '#ffffff');
+            break;
+
+        default:
+            break;
+    }
 
     ctx.fillStyle = radgrad;
     ctx.fillRect(x - outer_radius, y - outer_radius, outer_radius * 2, outer_radius * 2);
 }
 
-const ThreeScene: React.FC = () => {
+function ThreeScene({
+    selectedSizeRef,
+    selectedToolRef,
+}: {
+    selectedSizeRef: React.RefObject<number>;
+    selectedToolRef: React.RefObject<Tool>;
+}) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const [selectedSize, setSelectedSize] = useState(1);
-    const selectedSizeRef = useRef(selectedSize);
-    useEffect(() => {
-        selectedSizeRef.current = selectedSize;
-    }, [selectedSize]);
 
     useEffect(() => {
         async function run() {
@@ -100,10 +119,10 @@ const ThreeScene: React.FC = () => {
                 ctx = cvs.getContext('2d') as CanvasRenderingContext2D;
 
                 ctx.lineJoin = ctx.lineCap = 'round';
-                ctx.globalCompositeOperation = 'lighten';
 
-                // ctx.fillStyle = '#000000';
-                ctx.clearRect(0, 0, cvs.width, cvs.height);
+                ctx.fillStyle = '#000000';
+                // /!\ We can't use clearRect because of darken globalCompositeOperation
+                ctx.fillRect(0, 0, cvs.width, cvs.height);
 
                 const heatmap_texture = new THREE.CanvasTexture(cvs);
                 heatmap_texture.wrapS = THREE.RepeatWrapping;
@@ -167,20 +186,50 @@ const ThreeScene: React.FC = () => {
                     MIDDLE: THREE.MOUSE.DOLLY,
                 };
 
+                const brush_helper_geometry = new THREE.PlaneGeometry(0.1, 0.1);
+                const brush_helper_alpha = new THREE.TextureLoader().load(
+                    './brush_helper_alpha.png'
+                );
+                const brush_helper_mesh = new THREE.Mesh(
+                    brush_helper_geometry,
+                    new THREE.MeshBasicMaterial({
+                        color: new THREE.Color(1, 1, 1),
+                        alphaMap: brush_helper_alpha,
+                        transparent: true,
+                        depthTest: false,
+                    })
+                );
+                brush_helper_mesh.renderOrder = 999;
+                brush_helper_mesh.visible = false;
+
                 const light = new THREE.AmbientLight(0xffffff); // soft white light
                 scene.add(light);
 
                 scene.add(mesh);
+                scene.add(brush_helper_mesh);
 
                 // Add raycaster and mouse logic here
                 const raycaster = new THREE.Raycaster();
                 const mouse = new THREE.Vector2();
 
-                function intersect(): THREE.Vector2 | undefined {
+                function intersect(): THREE.Intersection | undefined {
                     const intersects = raycaster.intersectObject(mesh, true);
                     if (intersects.length == 0) return undefined;
-                    const uv = intersects[0].uv as THREE.Vector2;
-                    return new THREE.Vector2(uv.x, 1 - uv.y);
+                    return intersects[0];
+                }
+
+                function update_brush_helper(intersect: THREE.Intersection) {
+                    if (intersect.normal) {
+                        const defaultNormal = new THREE.Vector3(0, 0, 1);
+                        const quaternion = new THREE.Quaternion().setFromUnitVectors(
+                            defaultNormal,
+                            intersect.normal
+                        );
+
+                        brush_helper_mesh.setRotationFromQuaternion(quaternion);
+
+                        brush_helper_mesh.position.copy(intersect.point);
+                    }
                 }
 
                 function on_pointer_move(event: MouseEvent) {
@@ -191,9 +240,21 @@ const ThreeScene: React.FC = () => {
 
                     raycaster.setFromCamera(mouse, camera);
 
-                    if (painting) {
-                        const uv_ts = intersect();
-                        if (uv_ts == undefined) return;
+                    if (!painting) {
+                        const intersects = raycaster.intersectObject(mesh, true);
+                        if (intersects.length != 0) {
+                            const intersect = intersects[0];
+                            brush_helper_mesh.visible = true;
+                            update_brush_helper(intersect);
+                        } else {
+                            brush_helper_mesh.visible = false;
+                        }
+                    } else {
+                        const intersection = intersect();
+                        if (intersection == undefined) return;
+                        const uv = intersection.uv as THREE.Vector2;
+                        const uv_ts = new THREE.Vector2(uv.x, 1 - uv.y);
+                        update_brush_helper(intersection);
 
                         let dist = distanceBetween(last_uv, uv_ts);
                         let angle = angleBetween(last_uv, uv_ts);
@@ -266,11 +327,48 @@ const ThreeScene: React.FC = () => {
                                     )
                                 ];
 
-                            draw_dot(ctx, x, y, innerRadius, outerRadius);
+                            switch (selectedToolRef.current.value) {
+                                case 'add':
+                                    ctx.globalCompositeOperation = 'lighten';
+                                    break;
+                                case 'subtract':
+                                    ctx.globalCompositeOperation = 'darken';
+                                    break;
+                                case 'remove':
+                                    console.log("setting remove");
+                                    ctx.globalCompositeOperation = 'multiply';
+                                    break;
+
+                                default:
+                                    break;
+                            }
+
+                            draw_dot(
+                                ctx,
+                                x,
+                                y,
+                                innerRadius,
+                                outerRadius,
+                                selectedToolRef.current.value
+                            );
                             if (x - outerRadius < 0) {
-                                draw_dot(ctx, 1024 + x, y, innerRadius, outerRadius);
+                                draw_dot(
+                                    ctx,
+                                    1024 + x,
+                                    y,
+                                    innerRadius,
+                                    outerRadius,
+                                    selectedToolRef.current.value
+                                );
                             } else if (x + outerRadius > 1024) {
-                                draw_dot(ctx, x - 1024, y, innerRadius, outerRadius);
+                                draw_dot(
+                                    ctx,
+                                    x - 1024,
+                                    y,
+                                    innerRadius,
+                                    outerRadius,
+                                    selectedToolRef.current.value
+                                );
                             }
 
                             if (goes_outside) break;
@@ -286,7 +384,7 @@ const ThreeScene: React.FC = () => {
                     if (event.button == 0) {
                         painting = true;
                         const tmp_uv = intersect();
-                        if (tmp_uv !== undefined) last_uv = tmp_uv;
+                        if (tmp_uv !== undefined && tmp_uv.uv) last_uv = tmp_uv.uv;
                     }
                 }
 
@@ -333,42 +431,150 @@ const ThreeScene: React.FC = () => {
         run();
     }, []);
     return (
-        <div className="flex flex-col h-full w-full" style={{ height: '100dvh' }}>
-            <div
-                className="flex-1"
-                ref={containerRef}
-                style={{
-                    width: '100%',
-                    aspectRatio: '1 / 1',
-                    maxWidth: '100vw',
-                    maxHeight: 'calc(100dvh - 80px)',
-                    margin: '0 auto',
-                }}
-            ></div>
-            <div
-                className="w-full px-4 py-2 bg-white/80 backdrop-blur fixed bottom-0 left-0 flex flex-col items-center"
-                style={{ zIndex: 10 }}
-            >
-                <label className="mb-1">Drawing size</label>
-                <input
-                    type="range"
-                    min={1}
-                    max={10}
-                    step={0.05}
-                    value={selectedSize}
-                    onChange={(e) => setSelectedSize(parseFloat(e.target.value))}
-                    style={{ width: '100%', maxWidth: 400 }}
-                />
-                <span>{selectedSize.toFixed(1)}</span>
-            </div>
+        <div className="flex flex-col h-dvh w-full">
+            <div className="flex-1 w-full h-full" ref={containerRef}></div>
         </div>
     );
+}
+
+export function ToolSelector({
+    tools,
+    selectedTool,
+    setSelectedTool,
+}: {
+    tools: Tool[];
+    selectedTool: Tool;
+    setSelectedTool: React.Dispatch<React.SetStateAction<Tool>>;
+}) {
+    return (
+        <div className="flex gap-4">
+            {tools.map((tool) => (
+                <Button
+                    key={tool.value}
+                    variant={selectedTool.value == tool.value ? 'default' : 'secondary'}
+                    onClick={() => setSelectedTool(tool)}
+                    className="flex flex-col space-y-2 w-20 h-20"
+                >
+                    <span className="text-3xl mb-2">{tool.icon}</span>
+                    <span className="text-sm font-medium">{tool.label}</span>
+                </Button>
+                // <button
+                //     key={tool.value}
+                //     onClick={() => setSelectedTool(tool)}
+                //     className={cn(
+                //         'flex flex-col items-center justify-center rounded-2xl p-6 border transition-all cursor-pointer w-20 h-20 shadow-sm',
+                //         selectedTool === tool
+                //             ? 'bg-primary text-white border-primary'
+                //             : 'bg-muted text-muted-foreground hover:border-primary'
+                //     )}
+                // >
+                //     <span className="text-3xl mb-2">{tool.icon}</span>
+                //     <span className="text-sm font-medium">{tool.label}</span>
+                // </button>
+            ))}
+        </div>
+    );
+}
+
+function ToolsPanel({
+    tools,
+    selectedTool,
+    setSelectedTool,
+}: {
+    tools: Tool[];
+    selectedTool: Tool;
+    setSelectedTool: React.Dispatch<React.SetStateAction<Tool>>;
+}) {
+    return (
+        <ToolSelector tools={tools} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
+    );
+}
+
+function PropertiesPanels({
+    selectedSize,
+    setSelectedSize,
+}: {
+    selectedSize: number;
+    setSelectedSize: React.Dispatch<React.SetStateAction<number>>;
+}) {
+    return (
+        <>
+            <label className="mb-1">Drawing size</label>
+            <Slider
+                min={1}
+                max={10}
+                step={0.05}
+                value={[selectedSize]}
+                onValueChange={(v) => {
+                    setSelectedSize(v[0]);
+                }}
+                className="w-full max-w-[400px]"
+            />
+            <span>{selectedSize.toFixed(1)}</span>
+        </>
+    );
+}
+
+type Tool = {
+    value: string;
+    label: string;
+    icon: string;
 };
 
-export default function Home() {
+export default function Heatmap() {
+    const tools: Tool[] = [
+        { value: 'add', label: 'Add', icon: '+' },
+        { value: 'subtract', label: 'Subtract', icon: '-' },
+        { value: 'remove', label: 'Remove', icon: 'x' },
+    ];
+
+    const [selectedTool, setSelectedTool] = useState<Tool>(tools[0]);
+    const [selectedSize, setSelectedSize] = useState<number>(1);
+
+    const selectedSizeRef = useRef(selectedSize);
+    const selectedToolRef = useRef(selectedTool);
+
+    useEffect(() => {
+        selectedSizeRef.current = selectedSize;
+        selectedToolRef.current = selectedTool;
+    }, [selectedSize, selectedTool]);
+
     return (
-        <div className="h-dvh flex flex-col">
-            <ThreeScene />
+        <div>
+            <div className="h-dvh flex flex-col">
+                <ThreeScene selectedSizeRef={selectedSizeRef} selectedToolRef={selectedToolRef} />
+            </div>
+            <ResizablePanelGroup
+                direction="horizontal"
+                className="fixed bottom-2 left-2 right-2 top-2 w-auto! h-auto! pointer-events-none"
+            >
+                <ResizablePanel
+                    defaultSize={80}
+                    className="flex flex-col place-items-center justify-end"
+                >
+                    {/* <div className="px-2 py-2 rounded-xl bg-neutral-200/80 backdrop-blur flex flex-col items-center z-10"> */}
+                    <div className="px-2 py-2 rounded-xl bg-neutral-200/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto">
+                        <ToolsPanel
+                            tools={tools}
+                            selectedTool={selectedTool}
+                            setSelectedTool={setSelectedTool}
+                        />
+                    </div>
+                </ResizablePanel>
+                <ResizableHandle />
+                <ResizablePanel
+                    defaultSize={10}
+                    className="rounded-xl px-8 py-4 bg-neutral-200/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto"
+                >
+                    {/* <div className="fixed rounded-xl right-2 top-2 bottom-2 px-8 py-4 bg-neutral-200/80 backdrop-blur flex flex-col items-center z-10"> */}
+                    <PropertiesPanels
+                        selectedSize={selectedSize}
+                        setSelectedSize={setSelectedSize}
+                    />
+                    {/* </div> */}
+                </ResizablePanel>
+            </ResizablePanelGroup>
+            {/* <div className="fixed bottom-2 left-0 right-0 flex flex-col place-items-center"></div> */}
         </div>
     );
 }

@@ -1,16 +1,47 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/Addons.js';
-import { add, div, mod, mul, texture, textureLoad, uvec3, vec2 } from 'three/tsl';
+import {
+    add,
+    div,
+    floor,
+    mod,
+    mul,
+    round,
+    sub,
+    texture,
+    textureLoad,
+    uint,
+    uniform,
+    uvec2,
+    uvec3,
+    vec2,
+} from 'three/tsl';
+import { Slider } from '@/components/ui/slider';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 
 let isLightSelected = false;
 let cvs;
 let ctx: CanvasRenderingContext2D;
 
-const ThreeScene: React.FC = () => {
+function draw_gradient_line(
+    ctx: CanvasRenderingContext2D,
+    id: number,
+    color_a: string,
+    color_b: string,
+    width: number = 100
+) {
+    const gradient = ctx.createLinearGradient(0, 0, width, 0);
+    gradient.addColorStop(0, color_a);
+    gradient.addColorStop(1, color_b);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, id, width, 1);
+}
+
+function ThreeScene({ timeRef }: { timeRef: React.RefObject<number> }) {
     const containerRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         async function anonnymous() {
@@ -86,9 +117,7 @@ const ThreeScene: React.FC = () => {
                 ids.flipY = false;
                 ids.repeat.set(scale.x, scale.y);
 
-                const pixels = new THREE.TextureLoader().load('./pixels2.png');
-                // pixels.format = THREE.RGBFormat;
-                // pixels.internalFormat = 'RGB8UI';
+                const pixels = new THREE.TextureLoader().load('./pixels3.png');
                 pixels.wrapS = THREE.ClampToEdgeWrapping;
                 pixels.wrapT = THREE.ClampToEdgeWrapping;
                 pixels.minFilter = THREE.NearestFilter;
@@ -97,10 +126,24 @@ const ThreeScene: React.FC = () => {
                 pixels.generateMipmaps = false;
 
                 cvs = document.createElement('canvas');
-                cvs.width = 1024;
-                cvs.height = 1024;
                 ctx = cvs.getContext('2d') as CanvasRenderingContext2D;
                 ctx.imageSmoothingEnabled = false;
+                cvs.width = 100;
+
+                cvs.height = 3;
+                draw_gradient_line(ctx, 0, 'red', 'green');
+                draw_gradient_line(ctx, 1, 'red', 'blue');
+                draw_gradient_line(ctx, 2, 'red', 'yellow');
+
+                document.getElementById('properties_panel')?.appendChild(cvs);
+
+                const color_evolution_lookup = new THREE.CanvasTexture(cvs);
+                color_evolution_lookup.wrapS = THREE.ClampToEdgeWrapping;
+                color_evolution_lookup.wrapT = THREE.ClampToEdgeWrapping;
+                color_evolution_lookup.minFilter = THREE.NearestFilter;
+                color_evolution_lookup.magFilter = THREE.NearestFilter;
+                color_evolution_lookup.flipY = false;
+                color_evolution_lookup.generateMipmaps = false;
 
                 const preview_material = new THREE.MeshStandardNodeMaterial({
                     map: albedo,
@@ -110,13 +153,18 @@ const ThreeScene: React.FC = () => {
                     transparent: false,
                 });
 
+                const uTime = uniform(timeRef.current);
+                const uTimeDiv = uniform(1);
+
                 const id_packed = uvec3(mul(texture(ids).rgb, 255));
                 const id = add(id_packed.x, mul(id_packed.y, 256), mul(id_packed.z, 256, 256));
-                preview_material.colorNode = mul(
-                    textureLoad(pixels, vec2(mod(id, 24), div(id, 24))),
-                    texture(albedo),
-                    texture(ao)
+                const pixels_value = textureLoad(pixels, vec2(mod(id, 24), div(id, 24)));
+                const color_index = uint(mul(pixels_value.r, 128));
+                const color_lookup_id = textureLoad(
+                    color_evolution_lookup,
+                    uvec2(floor(mul(div(uTime, uTimeDiv), 99)), color_index)
                 );
+                preview_material.colorNode = mul(color_lookup_id, texture(albedo), texture(ao));
 
                 const light = new THREE.AmbientLight(0xaaaaaa);
                 const pointlight = new THREE.PointLight(0xffffff);
@@ -180,6 +228,7 @@ const ThreeScene: React.FC = () => {
                 const renderScene = (t: number) => {
                     pointlight.position.x = Math.cos(0.0015 * t);
                     pointlight.position.y = Math.cos(0.001 * t);
+                    uTime.value = timeRef.current;
                     controls.update();
                     renderer.render(scene, camera);
                     requestAnimationFrame(renderScene);
@@ -209,14 +258,65 @@ const ThreeScene: React.FC = () => {
         anonnymous();
     }, []);
     return <div className="flex-1" ref={containerRef} />;
-};
+}
+
+function PropertiesPanels({
+    time,
+    setTime,
+}: {
+    time: number;
+    setTime: React.Dispatch<React.SetStateAction<number>>;
+}) {
+    return (
+        <>
+            <label className="mb-1">Time</label>
+            <Slider
+                min={0}
+                max={1}
+                step={0.01}
+                value={[time]}
+                onValueChange={(v) => {
+                    setTime(v[0]);
+                }}
+                className="w-full max-w-[400px]"
+            />
+            <span>{time.toFixed(1)}</span>
+        </>
+    );
+}
 
 export default function Home() {
-    // const [time, setTime] = useState(0);
+    const [time, setTime] = useState(0);
+    const timeRef = useRef(time);
+    useEffect(() => {
+        timeRef.current = time;
+    }, [time]);
 
     return (
-        <div className="h-dvh flex flex-col">
-            <ThreeScene />
+        <div>
+            <div className="h-dvh flex flex-col">
+                <ThreeScene timeRef={timeRef} />
+            </div>
+            <ResizablePanelGroup
+                direction="horizontal"
+                className="fixed bottom-2 left-2 right-2 top-2 w-auto! h-auto! pointer-events-none"
+            >
+                <ResizablePanel
+                    defaultSize={80}
+                    className="flex flex-col place-items-center justify-end"
+                >
+                    <div className="px-2 py-2 rounded-xl bg-neutral-200/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto"></div>
+                </ResizablePanel>
+                <ResizableHandle />
+                <ResizablePanel
+                    defaultSize={10}
+                    className="rounded-xl px-8 py-4 bg-neutral-200/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto"
+                    id="properties_panel"
+                >
+                    <PropertiesPanels time={time} setTime={setTime} />
+                    {/* </div> */}
+                </ResizablePanel>
+            </ResizablePanelGroup>
         </div>
     );
 }

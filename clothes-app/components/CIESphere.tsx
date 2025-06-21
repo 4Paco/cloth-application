@@ -2,13 +2,11 @@
 
 import { Line, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { ColorEntry } from './color_handling';
 import { ColorButton } from './ExcelButton';
 import { ColorTranslator } from 'colortranslator';
-
-import { cn } from '@/lib/utils';
 
 function labToRgb(L: number, a: number, b: number) {
     const y = (L + 16) / 116;
@@ -48,10 +46,12 @@ function labToRgb(L: number, a: number, b: number) {
 }
 
 interface CIESphereProps {
-    current_selectedColors: any[];
-    setCurrentSelectedColors: (colors: any[]) => void;
+    current_selectedColors: ColorEntry[];
+    setCurrentSelectedColors: (colors: ColorEntry[]) => void;
+    maxColors: number;
 }
-const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphereProps) => {
+
+const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors }: CIESphereProps) => {
     const [selectedColor, setSelectedColor] = useState<THREE.Color | null>(null);
     const [selectedSize, setSelectedSize] = useState(0.085);
     const [selectedPosition, setSelectedPosition] = useState<THREE.Vector3 | null>(null);
@@ -59,12 +59,6 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
     const [seeAllColorants, setSeeAllColorants] = useState(false);
     const [tolerance, setTolerance] = useState(0.1);
     const [tableau_test, setParsedData] = useState<ColorEntry[] | null>(null);
-    const [selectedColorants, setSelectedColorants] = useState<ColorEntry[]>([]);
-
-    // Update parent state when selectedColorants changes
-    useEffect(() => {
-        setCurrentSelectedColors(selectedColorants.map(x => ({ ...x })));
-    }, [selectedColorants, setCurrentSelectedColors]);
 
     const points = useMemo(() => {
         const spheres: { position: [number, number, number]; color: THREE.Color }[] = [];
@@ -73,68 +67,54 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
         for (let L = 0; L <= 100; L += step) {
             for (let a = -120; a <= 120; a += step) {
                 for (let b = -120; b <= 120; b += step) {
-                    const radius = Math.sqrt(a * a + b * b + (L - 50) * (L - 50));
-                    //if (radius <= 90) {
                     const color = labToRgb(L, a, b);
                     spheres.push({
                         position: [a / 100, b / 100, (L - 50) / 100],
                         color,
                     });
-                    //}
                 }
             }
         }
         return spheres;
     }, []);
 
-    //const tableau_test: ColorEntry[] = [
-    //    { id: 1, hours: 0, L: 50, a: -40, b: 45, E: 2.5 },
-    //    { id: 1, hours: 10, L: 53.23, a: 80.11, b: 67.22, E: 2.5 },
-    //    { id: 1, hours: 20, L: 43, a: 50, b: 60, E: 2.5 },
-    //    { id: 1, hours: 30, L: 33, a: 20, b: 55, E: 2.5 },
-    //    { id: 1, hours: 40, L: 23, a: -10, b: 50, E: 2.5 },
-    //    { id: 2, hours: 20, L: 60, a: 10, b: -15, E: 3.1 },
-    //    { id: 3, hours: 15, L: 45, a: 25, b: -10, E: 1.8 },
-    //    { id: 4, hours: 30, L: 70, a: -5, b: 20, E: 2.9 },
-    //    { id: 5, hours: 25, L: 55, a: 15, b: -25, E: 3.4 },
-    //];
-
     const getColorantsToPlot = () => {
-        let colorants_tolerated;
+        if (!tableau_test) return [];
+        let colorants_tolerated: ColorEntry[] = [];
         if (seeAllColorants) {
-            colorants_tolerated = tableau_test.filter((colorant) => {
-                if (colorant.hours != 0) return false;
-                return true;
-            });
+            colorants_tolerated = tableau_test.filter((colorant) => colorant.hours === 0);
         } else {
             if (!selectedPosition) return [];
-            else {
-                colorants_tolerated = tableau_test.filter((colorant) => {
-                    if (colorant.hours != 0) return false;
-
-                    const position = [colorant.a / 100, colorant.b / 100, (colorant.L - 50) / 100];
-                    const distance = new THREE.Vector3(...position).distanceTo(
-                        new THREE.Vector3(...selectedPosition)
-                    );
-                    return distance <= tolerance;
-                    //return true;
-                });
-            }
+            colorants_tolerated = tableau_test.filter((colorant) => {
+                if (colorant.hours !== 0) return false;
+                const position: [number, number, number] = [
+                    colorant.a / 100,
+                    colorant.b / 100,
+                    (colorant.L - 50) / 100,
+                ];
+                const distance = new THREE.Vector3(...position).distanceTo(
+                    new THREE.Vector3(...selectedPosition)
+                );
+                return distance <= tolerance;
+            });
         }
 
-        var to_plot = [];
+        type ToPlotType = [number, [number, number, number][], [number, number, number][]];
+        const to_plot: ToPlotType[] = [];
         colorants_tolerated.forEach((node_0) => {
             const id = node_0.id;
-            const family = tableau_test.filter((col) => {
-                return col.id == id;
-            });
+            const family = tableau_test.filter((col) => col.id === id);
 
-            var positions_family = [];
-            var colors_family = [];
+            const positions_family: [number, number, number][] = [];
+            const colors_family: [number, number, number][] = [];
             family.forEach((node) => {
-                const position = [node.a / 100, node.b / 100, (node.L - 50) / 100];
+                const position: [number, number, number] = [
+                    node.a / 100,
+                    node.b / 100,
+                    (node.L - 50) / 100,
+                ];
                 const color_node = labToRgb(node.L, node.a, node.b);
-                const color_rgb = [color_node.r, color_node.g, color_node.b];
+                const color_rgb: [number, number, number] = [color_node.r, color_node.g, color_node.b];
                 positions_family.push(position);
                 colors_family.push(color_rgb);
             });
@@ -165,8 +145,22 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
         points[960].color,
         points[209].color,
     ];
-    
-    console.log(current_selectedColors.length);
+
+    // Handler to add/remove colorant
+    function handleSelectColorant(colorant: ColorEntry) {
+        const alreadySelected = current_selectedColors.some(c => c.id === colorant.id);
+        if (alreadySelected) {
+            setCurrentSelectedColors(current_selectedColors.filter(c => c.id !== colorant.id));
+        } else if (current_selectedColors.length < maxColors) {
+            setCurrentSelectedColors([...current_selectedColors, colorant]);
+        }
+    }
+
+    // Handler to remove colorant by id
+    function handleRemoveColorant(id: number) {
+        setCurrentSelectedColors(current_selectedColors.filter(c => c.id !== id));
+    }
+
     return (
         <>
             <div
@@ -201,7 +195,6 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
                                     setSelectedColor(hex);
                                     points.forEach((point) => {
                                         if (selectedColor === point.color) {
-                                            console.log(point.color);
                                             setSelectedPosition(
                                                 new THREE.Vector3(...point.position)
                                             );
@@ -234,7 +227,7 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
                                 max={0.15}
                                 step={0.005}
                                 value={selectedSize}
-                                onClick={(e) => setSelectedSize(parseFloat(e.target.value))}
+                                onChange={(e) => setSelectedSize(parseFloat(e.target.value))}
                                 style={{ width: '100%' }}
                             />
                         </>
@@ -256,12 +249,9 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
                     {selectedColor && !colorValidated && (
                         <>
                             <input
-                                type="Button"
-                                //title="Validate selection"
+                                type="button"
                                 defaultValue="Validate selection"
-                                onClick={(e) => {
-                                    setColorValidated(true), console.log(colorValidated);
-                                }}
+                                onClick={() => setColorValidated(true)}
                                 style={{ width: '100%', background: 'dimgrey' }}
                             />
                         </>
@@ -271,12 +261,9 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
                             <br />
                             <br />
                             <input
-                                type="Button"
-                                //title="Change selection"
+                                type="button"
                                 defaultValue="Change selection"
-                                onClick={(e) => {
-                                    setColorValidated(false), console.log(colorValidated);
-                                }}
+                                onClick={() => setColorValidated(false)}
                                 style={{ width: '100%', background: 'dimgrey' }}
                             />
                         </>
@@ -331,8 +318,8 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
                             </mesh>
                         ))}
                         {colorantsFamiliesToPlot.map((array, idx) => {
-                            const startPoint = new THREE.Vector3(...array[1][array[1].length - 2]); // First point of the line
-                            const endPoint = new THREE.Vector3(...array[1][array[1].length - 1]); // Last point of the line
+                            const startPoint = new THREE.Vector3(...array[1][array[1].length - 2]);
+                            const endPoint = new THREE.Vector3(...array[1][array[1].length - 1]);
                             const direction = new THREE.Vector3()
                                 .subVectors(endPoint, startPoint)
                                 .normalize();
@@ -348,15 +335,16 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
                                         vertexColors={array[2]}
                                         lineWidth={10}
                                         onClick={() => {
-                                            setSelectedColorants((prev) => {
-                                                if (!prev.includes(array[0])) {
-                                                    return [...prev, array[0]];
+                                            // Only allow up to maxColors
+                                            const alreadySelected = current_selectedColors.some(c => c.id === array[0]);
+                                            if (!alreadySelected && current_selectedColors.length < maxColors) {
+                                                const colorantObj = tableau_test?.find(c => c.id === array[0] && c.hours === 0);
+                                                if (colorantObj) {
+                                                    setCurrentSelectedColors([...current_selectedColors, colorantObj]);
                                                 }
-                                                return prev;
-                                            });
+                                            }
                                         }}
                                     />
-                                    {/* Add ArrowHelper */}
                                     <primitive
                                         object={
                                             new THREE.ArrowHelper(
@@ -373,45 +361,25 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
                         })}
                     </Canvas>
                 )}
-                {selectedColorants.length > 0 && (
+                {current_selectedColors.length > 0 && (
                     <div className="flex flex-col place-content-start">
                         <h4>Ongoing selection of colorants</h4>
-                        {selectedColorants.map((id_select, i) => {
-                            const colorantData =
-                                tableau_test?.filter((d2) => d2.id === id_select) || [];
-                            const maxHours = Math.max(...colorantData.map((d2) => d2.hours));
+                        {current_selectedColors.map((id_select, i) => {
+                            const colorantData = tableau_test?.filter((d2) => d2.id === id_select.id) || [];
+                            const maxHours = colorantData.length > 0 ? Math.max(...colorantData.map((d2) => d2.hours)) : 1;
                             const gradientStops = colorantData.map((d2) => {
                                 const col = new ColorTranslator({
                                     L: d2.L,
                                     a: d2.a,
                                     b: d2.b,
                                 });
-                                const stopPoint = (d2.hours / maxHours) * 100;
-                                return `${col.RGB}`; //; ${stopPoint}%`;
+                                return `${col.RGB}`;
                             });
-                            console.log('gradStops: ', gradientStops);
                             return (
-                                <div
-                                    key={String(id_select) + '_' + String(i)}
-                                    className="flex flex-row m-2 h-[2rem] rounded-md"
-                                >
+                                <div key={i + '_container'}>
                                     <button
-                                        className="mr-2"
-                                        onClick={(e) => {
-                                            console.log('X');
-                                            setSelectedColorants((prev) => {
-                                                if (prev.includes(id_select)) {
-                                                    const new_prev = prev.filter((id) => id !== id_select);
-                                                    return new_prev
-
-                                                }
-                                                current_selectedColors= prev.map( x => { return {...x}} )
-                                                return prev;
-                                                
-                                            });
-                                        }}
+                                        onClick={() => handleRemoveColorant(id_select.id)}
                                     >
-                                        {/*trash icon*/}
                                         <svg
                                             xmlns="http://www.w3.org/2000/svg"
                                             width="16"
@@ -430,7 +398,7 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
                                             background: `linear-gradient(to right, ${gradientStops.join(
                                                 ', '
                                             )})`,
-                                            width: `${maxHours * 0.1}px`, // Adjust width proportionate to maxHours
+                                            width: `${maxHours * 0.1}px`,
                                         }}
                                     ></div>
                                     <br />
@@ -443,6 +411,5 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors }: CIESphe
             </div>
         </>
     );
-};
-
+}
 export default CIESphere;

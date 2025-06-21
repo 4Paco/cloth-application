@@ -43,9 +43,8 @@ export default function Home() {
 
     // Handler for when the user confirms their color selection
     function handleContinue() {
-        // Store the selected colors in the context (as hex or your preferred format)
         setSelectedColors(currentSelectedColors.map(c => c.id.toString()));
-        router.push('/preview'); // Or wherever you want to go next
+        router.push('/preview');
     }
 
     // Only allow selection up to requiredColorCount
@@ -56,10 +55,12 @@ export default function Home() {
     }
 
     return (
-        <main style={{ width: '100vw', height: '100vh', background: 'black' }}>
-            <LogInButton />
-            <MainButton />
-            <div className="text-white text-center mb-4">
+        <main style={{ width: '100vw', height: '100vh', background: 'black', display: 'flex', flexDirection: 'column' }}>
+            <div className="flex w-full justify-end mt-4 pr-4">
+                <LogInButton />
+                <MainButton />
+            </div>
+            <div className="text-white text-center mb-4 mt-8">
                 <h2 className="text-2xl font-bold mb-2">Pick {requiredColorCount} color{requiredColorCount > 1 ? 's' : ''} for your pattern</h2>
                 <p className="mb-2">
                     {currentSelectedColors.length}/{requiredColorCount} selected
@@ -74,7 +75,14 @@ export default function Home() {
                 style={{
                     visibility: currentSelectedColors.length === requiredColorCount ? 'visible' : 'hidden',
                     marginTop: 24,
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    width: '100%',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    background: 'black',
                 }}
             >
                 <button

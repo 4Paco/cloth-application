@@ -51,13 +51,18 @@ interface CIESphereProps {
     maxColors: number;
 }
 
-const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors }: CIESphereProps) => {
+const CIESphere = ({
+    current_selectedColors,
+    setCurrentSelectedColors,
+    maxColors,
+}: CIESphereProps) => {
     const [selectedColor, setSelectedColor] = useState<THREE.Color | null>(null);
     const [selectedSize, setSelectedSize] = useState(0.085);
     const [selectedPosition, setSelectedPosition] = useState<THREE.Vector3 | null>(null);
     const [colorValidated, setColorValidated] = useState(false);
     const [seeAllColorants, setSeeAllColorants] = useState(false);
     const [tolerance, setTolerance] = useState(0.1);
+    const [maxiHoursDisplayed, setMaxiHoursDisplayed] = useState(1);
     const [tableau_test, setParsedData] = useState<ColorEntry[] | null>(null);
 
     const points = useMemo(() => {
@@ -114,9 +119,17 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors
                     (node.L - 50) / 100,
                 ];
                 const color_node = labToRgb(node.L, node.a, node.b);
-                const color_rgb: [number, number, number] = [color_node.r, color_node.g, color_node.b];
+                const color_rgb: [number, number, number] = [
+                    color_node.r,
+                    color_node.g,
+                    color_node.b,
+                ];
                 positions_family.push(position);
                 colors_family.push(color_rgb);
+
+                if (node.hours > maxiHoursDisplayed) {
+                    setMaxiHoursDisplayed(node.hours);
+                }
             });
             to_plot.push([id, positions_family, colors_family]);
         });
@@ -148,9 +161,9 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors
 
     // Handler to add/remove colorant
     function handleSelectColorant(colorant: ColorEntry) {
-        const alreadySelected = current_selectedColors.some(c => c.id === colorant.id);
+        const alreadySelected = current_selectedColors.some((c) => c.id === colorant.id);
         if (alreadySelected) {
-            setCurrentSelectedColors(current_selectedColors.filter(c => c.id !== colorant.id));
+            setCurrentSelectedColors(current_selectedColors.filter((c) => c.id !== colorant.id));
         } else if (current_selectedColors.length < maxColors) {
             setCurrentSelectedColors([...current_selectedColors, colorant]);
         }
@@ -158,7 +171,7 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors
 
     // Handler to remove colorant by id
     function handleRemoveColorant(id: number) {
-        setCurrentSelectedColors(current_selectedColors.filter(c => c.id !== id));
+        setCurrentSelectedColors(current_selectedColors.filter((c) => c.id !== id));
     }
 
     return (
@@ -174,43 +187,54 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors
                 <div style={{ width: '200px', background: '#111', padding: '1rem' }}>
                     <h3 className="font-bold">Open your CSV file containing colorants</h3>
                     <br />
-                    <ColorButton setParsedData={setParsedData} setSeeAll={setSeeAllColorants} />
+                    <div className="flex flex-row">
+                        <ColorButton setParsedData={setParsedData} setSeeAll={setSeeAllColorants} />
+                        {tableau_test && (
+                            <>
+                                <div className="flex flex-col pl-2">
+                                    See all
+                                    <input
+                                        type="checkbox"
+                                        className="ml-2"
+                                        aria-label=".5a"
+                                        checked={seeAllColorants}
+                                        onChange={() => setSeeAllColorants((prev) => !prev)}
+                                    />
+                                </div>
+                            </>
+                        )}
+                    </div>
                     {tableau_test && (
-                        <input
-                            type="checkbox"
-                            className="ml-2"
-                            aria-label=".5a"
-                            checked={seeAllColorants}
-                            onChange={() => setSeeAllColorants((prev) => !prev)}
-                        />
-                    )}
-                    <br />
-                    <br />
-                    <h3>Suggested Colors</h3>
-                    {suggestedColors.map((hex, i) => (
-                        <div
-                            key={String(i) + '_' + String(i) + '_' + String(i)}
-                            onClick={() => {
-                                if (!colorValidated) {
-                                    setSelectedColor(hex);
-                                    points.forEach((point) => {
-                                        if (selectedColor === point.color) {
-                                            setSelectedPosition(
-                                                new THREE.Vector3(...point.position)
-                                            );
+                        <>
+                            <br />
+                            <br />
+                            <h3>Suggested Colors</h3>
+                            {suggestedColors.map((hex, i) => (
+                                <div
+                                    key={String(i) + '_' + String(i) + '_' + String(i)}
+                                    onClick={() => {
+                                        if (!colorValidated) {
+                                            setSelectedColor(hex);
+                                            points.forEach((point) => {
+                                                if (selectedColor === point.color) {
+                                                    setSelectedPosition(
+                                                        new THREE.Vector3(...point.position)
+                                                    );
+                                                }
+                                            });
                                         }
-                                    });
-                                }
-                            }}
-                            style={{
-                                background: hex.getStyle(),
-                                height: '30px',
-                                width: '100%',
-                                marginBottom: '10px',
-                                cursor: 'pointer',
-                            }}
-                        />
-                    ))}
+                                    }}
+                                    style={{
+                                        background: hex.getStyle(),
+                                        height: '30px',
+                                        width: '100%',
+                                        marginBottom: '10px',
+                                        cursor: 'pointer',
+                                    }}
+                                />
+                            ))}
+                        </>
+                    )}
                     {selectedColor && (
                         <>
                             <h4>Selected Color</h4>
@@ -336,11 +360,21 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors
                                         lineWidth={10}
                                         onClick={() => {
                                             // Only allow up to maxColors
-                                            const alreadySelected = current_selectedColors.some(c => c.id === array[0]);
-                                            if (!alreadySelected && current_selectedColors.length < maxColors) {
-                                                const colorantObj = tableau_test?.find(c => c.id === array[0] && c.hours === 0);
+                                            const alreadySelected = current_selectedColors.some(
+                                                (c) => c.id === array[0]
+                                            );
+                                            if (
+                                                !alreadySelected &&
+                                                current_selectedColors.length < maxColors
+                                            ) {
+                                                const colorantObj = tableau_test?.find(
+                                                    (c) => c.id === array[0] && c.hours === 0
+                                                );
                                                 if (colorantObj) {
-                                                    setCurrentSelectedColors([...current_selectedColors, colorantObj]);
+                                                    setCurrentSelectedColors([
+                                                        ...current_selectedColors,
+                                                        colorantObj,
+                                                    ]);
                                                 }
                                             }
                                         }}
@@ -362,11 +396,18 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors
                     </Canvas>
                 )}
                 {current_selectedColors.length > 0 && (
-                    <div className="flex flex-col place-content-start">
-                        <h4>Ongoing selection of colorants</h4>
+                    <div className="flex flex-col place-content-start pr-2">
+                        <h4 className="self-center">
+                            Ongoing selection of colorants <br />
+                            (gradient on {maxiHoursDisplayed} hours):
+                        </h4>
                         {current_selectedColors.map((id_select, i) => {
-                            const colorantData = tableau_test?.filter((d2) => d2.id === id_select.id) || [];
-                            const maxHours = colorantData.length > 0 ? Math.max(...colorantData.map((d2) => d2.hours)) : 1;
+                            const colorantData =
+                                tableau_test?.filter((d2) => d2.id === id_select.id) || [];
+                            const maxHours =
+                                colorantData.length > 0
+                                    ? Math.max(...colorantData.map((d2) => d2.hours))
+                                    : 1;
                             const gradientStops = colorantData.map((d2) => {
                                 const col = new ColorTranslator({
                                     L: d2.L,
@@ -376,34 +417,36 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors
                                 return `${col.RGB}`;
                             });
                             return (
-                                <div key={i + '_container'}>
-                                    <button
-                                        onClick={() => handleRemoveColorant(id_select.id)}
-                                    >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            fill="red"
-                                            className="bi bi-trash-fill"
-                                            viewBox="0 0 16 16"
+                                <>
+                                    <div key={i + '_container'} className="flex flex-row pb-3 pt-2">
+                                        <button
+                                            onClick={() => handleRemoveColorant(id_select.id)}
+                                            className="pr-2"
                                         >
-                                            <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5M8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5m3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0" />
-                                        </svg>
-                                    </button>
-                                    <div
-                                        key={String(i) + '_gradient'}
-                                        className="rounded-md"
-                                        style={{
-                                            background: `linear-gradient(to right, ${gradientStops.join(
-                                                ', '
-                                            )})`,
-                                            width: `${maxHours * 0.1}px`,
-                                        }}
-                                    ></div>
-                                    <br />
-                                    <br />
-                                </div>
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="16"
+                                                height="16"
+                                                fill="red"
+                                                className="bi bi-trash-fill ml-2"
+                                                viewBox="0 0 16 16"
+                                            >
+                                                <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5M8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5m3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0" />
+                                            </svg>
+                                        </button>
+                                        <div
+                                            key={String(i) + '_gradient'}
+                                            className="rounded-md"
+                                            style={{
+                                                background: `linear-gradient(to right, ${gradientStops.join(
+                                                    ', '
+                                                )})`,
+                                                width: `${(maxHours * 210) / maxiHoursDisplayed}px`,
+                                                height: '20px',
+                                            }}
+                                        ></div>
+                                    </div>
+                                </>
                             );
                         })}
                     </div>
@@ -411,5 +454,5 @@ const CIESphere = ({ current_selectedColors, setCurrentSelectedColors, maxColors
             </div>
         </>
     );
-}
+};
 export default CIESphere;

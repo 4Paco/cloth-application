@@ -68,7 +68,7 @@ export default function HomePage() {
     router.push('/login'); // Redirect to login page
   };
   const handleExploreTool = () => {
-    router.push('/CIE'); // Redirect to palettes page
+    router.push('/pattern'); // Redirect to palettes page
   };
   return (
     <main className="min-h-screen bg-neutral-950 text-white font-sans">

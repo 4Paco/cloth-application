@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Color } from 'three';
 import { ColorEntry } from '@/components/color_handling';
+import { useRouter } from 'next/navigation';
 
 const tableau_test: ColorEntry[] = [
     { id: 1, hours: 10, L: 60, a: -10, b: 40, E: 2.5 },

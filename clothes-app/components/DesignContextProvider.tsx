@@ -1,6 +1,7 @@
 // components/DesignContext.tsx
 'use client';
 import { createContext, useContext, useEffect, useState, ChangeEvent } from 'react';
+import { Colorant } from './CIESphere';
 
 // On passe de selectedColor à selectedColors (tableau de couleurs)
 interface DesignContextType {
@@ -12,6 +13,8 @@ interface DesignContextType {
     setSelectedPattern: React.Dispatch<React.SetStateAction<File | null>>;
     requiredColorCount: number;
     setRequiredColorCount: React.Dispatch<React.SetStateAction<number>>;
+    designColorants: Colorant[];
+    setDesignColorants: React.Dispatch<React.SetStateAction<Colorant[]>>;
 }
 const DesignContext = createContext<DesignContextType | undefined>(undefined);
 

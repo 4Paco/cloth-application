@@ -22,6 +22,7 @@ import {
 } from 'three/tsl';
 import { Slider } from '@/components/ui/slider';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { useDesign } from '@/components/DesignContextProvider';
 
 let isLightSelected = false;
 let cvs;
@@ -43,6 +44,7 @@ function draw_gradient_line(
 
 function ThreeScene({ timeRef }: { timeRef: React.RefObject<number> }) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const { selectedColors } = useDesign();
     useEffect(() => {
         async function anonnymous() {
             if (typeof window !== 'undefined') {

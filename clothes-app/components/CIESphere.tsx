@@ -82,7 +82,7 @@ function Spheres({
 }
 
 type ColoredPoint = { position: THREE.Vector3; color: THREE.Color };
-type ToPlotType = { id: number; points: ColoredPoint[] };
+export type Colorant = { id: number; points: ColoredPoint[] };
 
 const CIESphere = ({
     colorantsDatabase,
@@ -93,7 +93,7 @@ const CIESphere = ({
     maxColors,
 }: CIESphereProps) => {
     const [selectedColors, setSelectedColors] = useState<number[]>([]);
-    const [colorantsFamiliesToPlot, setColorantsFamiliesToPlot] = useState<ToPlotType[]>([]);
+    const [colorantsFamiliesToPlot, setColorantsFamiliesToPlot] = useState<Colorant[]>([]);
     const [maxiHoursDisplayed, setMaxiHoursDisplayed] = useState(1);
 
     const points = useMemo(() => {
@@ -135,7 +135,7 @@ const CIESphere = ({
                 });
             }
 
-            const to_plot: ToPlotType[] = [];
+            const to_plot: Colorant[] = [];
             colorants_tolerated.forEach((node_0) => {
                 const id = node_0.id;
                 const family = colorantsDatabase.filter((col) => col.id === id);

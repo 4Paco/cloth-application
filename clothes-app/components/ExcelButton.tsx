@@ -1,27 +1,18 @@
 'use client';
-import React, { ChangeEvent, useState } from 'react';
+import React, { ChangeEvent } from 'react';
 
-import { FileIcon } from 'lucide-react';
-import { parseCSVText, ColorEntry } from './color_handling'; // adjust path as needed
 import { Button } from '@/components/ui/button';
 
 export function ColorButton({
-    setParsedData,
-    setSeeAll,
+    children,
+    callback,
 }: {
-    setParsedData: (colors: ColorEntry[]) => void;
-    setSeeAll?: (bool: boolean) => void;
+    children: React.ReactNode;
+    callback: (file: File) => void;
 }) {
     const fileSubmit = async (e: ChangeEvent<HTMLInputElement>) => {
         if (e?.target?.files && e.target.files.length > 0) {
-            const csvText = await e.target.files[0].text();
-            const parsed = parseCSVText(csvText);
-            console.log('tableau_test: ', parsed[0]);
-            setParsedData(parsed);
-
-            if (setSeeAll) {
-                setSeeAll(true);
-            }
+            callback(e.target.files[0]);
         }
     };
 
@@ -29,7 +20,7 @@ export function ColorButton({
         <>
             <Button asChild>
                 <label htmlFor="file-upload" className="cursor-pointer">
-                    <FileIcon /> Open File
+                    {children}
                 </label>
             </Button>
             <input

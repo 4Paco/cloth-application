@@ -1,81 +1,113 @@
 'use client';
 
 import { Line, OrbitControls } from '@react-three/drei';
-import { Canvas } from '@react-three/fiber';
-import { useMemo, useState } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ColorEntry } from './color_handling';
-import { ColorButton } from './ExcelButton';
 import { ColorTranslator } from 'colortranslator';
 
-function labToRgb(L: number, a: number, b: number) {
-    const y = (L + 16) / 116;
-    const x = a / 500 + y;
-    const z = y - b / 200;
-
-    const [x3, y3, z3] = [x, y, z].map((v) => {
-        const v3 = v ** 3;
-        return v3 > 0.008856 ? v3 : (v - 16 / 116) / 7.787;
-    });
-
-    const refX = 95.047;
-    const refY = 100.0;
-    const refZ = 108.883;
-
-    let X = x3 * refX;
-    let Y = y3 * refY;
-    let Z = z3 * refZ;
-
-    X /= 100;
-    Y /= 100;
-    Z /= 100;
-
-    let r = X * 3.2406 + Y * -1.5372 + Z * -0.4986;
-    let g = X * -0.9689 + Y * 1.8758 + Z * 0.0415;
-    let bVal = X * 0.0557 + Y * -0.204 + Z * 1.057;
-
-    [r, g, bVal] = [r, g, bVal].map((c) =>
-        c > 0.0031308 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : 12.92 * c
-    );
-
-    return new THREE.Color(
-        Math.min(Math.max(r, 0), 1),
-        Math.min(Math.max(g, 0), 1),
-        Math.min(Math.max(bVal, 0), 1)
-    );
-}
-
 interface CIESphereProps {
+    colorantsDatabase: ColorEntry[];
+    tolerance: number;
+    seeAllColorants: boolean;
     current_selectedColors: ColorEntry[];
     setCurrentSelectedColors: (colors: ColorEntry[]) => void;
     maxColors: number;
 }
 
+const tempObject = new THREE.Object3D();
+
+function Spheres({
+    points,
+    selectedColors,
+    clickCallback,
+}: {
+    points: {
+        position: THREE.Vector3;
+        color: THREE.Color;
+    }[];
+    selectedColors: number[];
+    clickCallback: (id: number) => void;
+}) {
+    const colorArray = useMemo(
+        () => Float32Array.from(points.flatMap((point) => point.color.toArray())),
+        [points]
+    );
+    const meshRef = useRef<THREE.InstancedMesh>(undefined);
+
+    const opacity = selectedColors.length > 0 ? 0.05 : 1.0;
+
+    // We have to use useFrame because react is dumb :/
+    useFrame(() => {
+        if (!meshRef.current) return;
+        points.forEach((point, id) => {
+            if (meshRef === undefined || meshRef.current === undefined) return;
+            // const selected = selectedColors.includes(id);
+            point.color.toArray(colorArray, id * 3);
+            meshRef.current.geometry.attributes.color.needsUpdate = true;
+
+            tempObject.position.copy(point.position);
+            // tempObject.scale.setScalar(selected ? 1.5 : 1);
+            tempObject.updateMatrix();
+
+            meshRef.current.setMatrixAt(id, tempObject.matrix);
+        });
+        meshRef.current.instanceMatrix.needsUpdate = true;
+    });
+
+    return (
+        <instancedMesh
+            ref={meshRef}
+            args={[undefined, undefined, points.length]}
+            onPointerDown={(e) => {
+                if (e.button == 0) {
+                    e.stopPropagation();
+                    clickCallback(e.instanceId as number);
+                }
+            }}
+            frustumCulled={false}
+        >
+            <sphereGeometry args={[1.5, 16, 16]}>
+                <instancedBufferAttribute attach="attributes-color" args={[colorArray, 3]} />
+            </sphereGeometry>
+            <meshBasicMaterial
+                toneMapped={false}
+                vertexColors
+                transparent={true}
+                opacity={opacity}
+            />
+        </instancedMesh>
+    );
+}
+
+type ColoredPoint = { position: THREE.Vector3; color: THREE.Color };
+type ToPlotType = { id: number; points: ColoredPoint[] };
+
 const CIESphere = ({
+    colorantsDatabase,
+    tolerance,
+    seeAllColorants,
     current_selectedColors,
     setCurrentSelectedColors,
     maxColors,
 }: CIESphereProps) => {
-    const [selectedColor, setSelectedColor] = useState<THREE.Color | null>(null);
-    const [selectedSize, setSelectedSize] = useState(0.085);
-    const [selectedPosition, setSelectedPosition] = useState<THREE.Vector3 | null>(null);
-    const [colorValidated, setColorValidated] = useState(false);
-    const [seeAllColorants, setSeeAllColorants] = useState(false);
-    const [tolerance, setTolerance] = useState(0.1);
+    const [selectedColors, setSelectedColors] = useState<number[]>([]);
+    const [colorantsFamiliesToPlot, setColorantsFamiliesToPlot] = useState<ToPlotType[]>([]);
     const [maxiHoursDisplayed, setMaxiHoursDisplayed] = useState(1);
-    const [tableau_test, setParsedData] = useState<ColorEntry[] | null>(null);
 
     const points = useMemo(() => {
-        const spheres: { position: [number, number, number]; color: THREE.Color }[] = [];
-        const step = 10;
+        const spheres: ColoredPoint[] = [];
+        const step = 8;
 
         for (let L = 0; L <= 100; L += step) {
-            for (let a = -120; a <= 120; a += step) {
-                for (let b = -120; b <= 120; b += step) {
-                    const color = labToRgb(L, a, b);
+            for (let a = -125; a <= 125; a += step) {
+                for (let b = -125; b <= 125; b += step) {
+                    const color = new ColorTranslator({ L: L, a: a, b: b });
+                    // const color = labToRgb(L, a, b);
                     spheres.push({
-                        position: [a / 100, b / 100, (L - 50) / 100],
-                        color,
+                        position: new THREE.Vector3(a, b, L - 50),
+                        color: new THREE.Color(color.R / 255, color.G / 255, color.B / 255),
                     });
                 }
             }
@@ -83,226 +115,114 @@ const CIESphere = ({
         return spheres;
     }, []);
 
-    const getColorantsToPlot = () => {
-        if (!tableau_test) return [];
-        let colorants_tolerated: ColorEntry[] = [];
-        if (seeAllColorants) {
-            colorants_tolerated = tableau_test.filter((colorant) => colorant.hours === 0);
-        } else {
-            if (!selectedPosition) return [];
-            colorants_tolerated = tableau_test.filter((colorant) => {
-                if (colorant.hours !== 0) return false;
-                const position: [number, number, number] = [
-                    colorant.a / 100,
-                    colorant.b / 100,
-                    (colorant.L - 50) / 100,
-                ];
-                const distance = new THREE.Vector3(...position).distanceTo(
-                    new THREE.Vector3(...selectedPosition)
-                );
-                return distance <= tolerance;
+    useEffect(() => {
+        const getColorantsToPlot = () => {
+            if (!colorantsDatabase) return [];
+            let colorants_tolerated: ColorEntry[] = [];
+            if (seeAllColorants) {
+                colorants_tolerated = colorantsDatabase.filter((colorant) => colorant.hours === 0);
+            } else {
+                // if (!selectedPosition) return [];
+                colorants_tolerated = colorantsDatabase.filter((colorant) => {
+                    if (colorant.hours !== 0) return false;
+                    const position = new THREE.Vector3(colorant.L, colorant.b, colorant.L - 50);
+                    const distance = Math.min(
+                        ...selectedColors.map((id) =>
+                            new THREE.Vector3(...position).distanceTo(points[id].position)
+                        )
+                    );
+                    return distance <= tolerance;
+                });
+            }
+
+            const to_plot: ToPlotType[] = [];
+            colorants_tolerated.forEach((node_0) => {
+                const id = node_0.id;
+                const family = colorantsDatabase.filter((col) => col.id === id);
+
+                const points: ColoredPoint[] = [];
+                family.forEach((node) => {
+                    const position: THREE.Vector3 = new THREE.Vector3(node.a, node.b, node.L - 50);
+                    // const color_node = labToRgb(node.L, node.a, node.b);
+                    const color_node = new ColorTranslator({ L: node.L, a: node.a, b: node.b });
+
+                    const color = new THREE.Color(
+                        color_node.R / 255,
+                        color_node.G / 255,
+                        color_node.B / 255
+                    );
+                    points.push({
+                        position,
+                        color,
+                    });
+
+                    if (node.hours > maxiHoursDisplayed) {
+                        setMaxiHoursDisplayed(node.hours);
+                    }
+                });
+                to_plot.push({ id, points });
             });
-        }
+            return to_plot;
+        };
 
-        type ToPlotType = [number, [number, number, number][], [number, number, number][]];
-        const to_plot: ToPlotType[] = [];
-        colorants_tolerated.forEach((node_0) => {
-            const id = node_0.id;
-            const family = tableau_test.filter((col) => col.id === id);
+        setColorantsFamiliesToPlot(getColorantsToPlot());
+    }, [colorantsDatabase, maxiHoursDisplayed, points, seeAllColorants, selectedColors, tolerance]);
 
-            const positions_family: [number, number, number][] = [];
-            const colors_family: [number, number, number][] = [];
-            family.forEach((node) => {
-                const position: [number, number, number] = [
-                    node.a / 100,
-                    node.b / 100,
-                    (node.L - 50) / 100,
-                ];
-                const color_node = labToRgb(node.L, node.a, node.b);
-                const color_rgb: [number, number, number] = [
-                    color_node.r,
-                    color_node.g,
-                    color_node.b,
-                ];
-                positions_family.push(position);
-                colors_family.push(color_rgb);
+    // const getPointsWithinTolerance = () => {
+    //     if (!selectedPosition) return [];
+    //     return points.filter((point) => {
+    //         const distance = new THREE.Vector3(...point.position).distanceTo(
+    //             new THREE.Vector3(...selectedPosition)
+    //         );
+    //         return distance <= tolerance;
+    //     });
+    // };
 
-                if (node.hours > maxiHoursDisplayed) {
-                    setMaxiHoursDisplayed(node.hours);
-                }
-            });
-            to_plot.push([id, positions_family, colors_family]);
-        });
-        return to_plot;
-    };
-
-    const colorantsFamiliesToPlot = getColorantsToPlot();
-
-    const getPointsWithinTolerance = () => {
-        if (!selectedPosition) return [];
-        return points.filter((point) => {
-            const distance = new THREE.Vector3(...point.position).distanceTo(
-                new THREE.Vector3(...selectedPosition)
-            );
-            return distance <= tolerance;
-        });
-    };
-
-    const pointsWithinTolerance = getPointsWithinTolerance();
-
-    const suggestedColors = [
-        points[1147].color,
-        points[242].color,
-        points[40].color,
-        points[198].color,
-        points[960].color,
-        points[209].color,
-    ];
-
-    // Handler to add/remove colorant
-    function handleSelectColorant(colorant: ColorEntry) {
-        const alreadySelected = current_selectedColors.some((c) => c.id === colorant.id);
-        if (alreadySelected) {
-            setCurrentSelectedColors(current_selectedColors.filter((c) => c.id !== colorant.id));
-        } else if (current_selectedColors.length < maxColors) {
-            setCurrentSelectedColors([...current_selectedColors, colorant]);
-        }
-    }
+    // const pointsWithinTolerance = getPointsWithinTolerance();
 
     // Handler to remove colorant by id
-    function handleRemoveColorant(id: number) {
-        setCurrentSelectedColors(current_selectedColors.filter((c) => c.id !== id));
-    }
+    // function handleRemoveColorant(id: number) {
+    //     setCurrentSelectedColors(current_selectedColors.filter((c) => c.id !== id));
+    // }
+
+    const clickCallback = (instanceId: number) => {
+        setSelectedColors((prev) => {
+            if (prev.includes(instanceId)) {
+                return prev.filter((id) => id !== instanceId);
+            } else {
+                return [...prev, instanceId];
+            }
+        });
+    };
 
     return (
         <>
-            <div
-                style={{
-                    display: 'flex',
-                    height: '100vh',
-                    color: 'white',
-                    fontFamily: 'sans-serif',
-                }}
-            >
-                <div style={{ width: '200px', background: '#111', padding: '1rem' }}>
-                    <h3 className="font-bold">Open your CSV file containing colorants</h3>
-                    <br />
-                    <div className="flex flex-row">
-                        <ColorButton setParsedData={setParsedData} setSeeAll={setSeeAllColorants} />
-                        {tableau_test && (
-                            <>
-                                <div className="flex flex-col pl-2">
-                                    See all
-                                    <input
-                                        type="checkbox"
-                                        className="ml-2"
-                                        aria-label=".5a"
-                                        checked={seeAllColorants}
-                                        onChange={() => setSeeAllColorants((prev) => !prev)}
-                                    />
-                                </div>
-                            </>
-                        )}
-                    </div>
-                    {tableau_test && (
-                        <>
-                            <br />
-                            <br />
-                            <h3>Suggested Colors</h3>
-                            {suggestedColors.map((hex, i) => (
-                                <div
-                                    key={String(i) + '_' + String(i) + '_' + String(i)}
-                                    onClick={() => {
-                                        if (!colorValidated) {
-                                            setSelectedColor(hex);
-                                            points.forEach((point) => {
-                                                if (selectedColor === point.color) {
-                                                    setSelectedPosition(
-                                                        new THREE.Vector3(...point.position)
-                                                    );
-                                                }
-                                            });
-                                        }
-                                    }}
-                                    style={{
-                                        background: hex.getStyle(),
-                                        height: '30px',
-                                        width: '100%',
-                                        marginBottom: '10px',
-                                        cursor: 'pointer',
-                                    }}
-                                />
-                            ))}
-                        </>
-                    )}
-                    {selectedColor && (
-                        <>
-                            <h4>Selected Color</h4>
-                            <div
-                                style={{
-                                    background: `#${selectedColor.getHexString()}`,
-                                    height: 30,
-                                }}
-                            ></div>
-                            <label>Bubble Size</label>
-                            <input
-                                type="range"
-                                min={0.0}
-                                max={0.15}
-                                step={0.005}
-                                value={selectedSize}
-                                onChange={(e) => setSelectedSize(parseFloat(e.target.value))}
-                                style={{ width: '100%' }}
-                            />
-                        </>
-                    )}
-                    {selectedColor && (
-                        <>
-                            <label>Selection Tolerance</label>
-                            <input
-                                type="range"
-                                min={0.01}
-                                max={0.5}
-                                step={0.005}
-                                value={tolerance}
-                                onChange={(e) => setTolerance(parseFloat(e.target.value))}
-                                style={{ width: '100%' }}
-                            />
-                        </>
-                    )}
-                    {selectedColor && !colorValidated && (
-                        <>
-                            <input
-                                type="button"
-                                defaultValue="Validate selection"
-                                onClick={() => setColorValidated(true)}
-                                style={{ width: '100%', background: 'dimgrey' }}
-                            />
-                        </>
-                    )}
-                    {colorValidated && (
-                        <>
-                            <br />
-                            <br />
-                            <input
-                                type="button"
-                                defaultValue="Change selection"
-                                onClick={() => setColorValidated(false)}
-                                style={{ width: '100%', background: 'dimgrey' }}
-                            />
-                        </>
-                    )}
-                </div>
-                {tableau_test && (
+            <div className="flex h-dvh text-white font-sans">
+                {points.length > 0 && (
                     <Canvas
                         id="canvas"
-                        style={{ background: 'black', flex: 1 }}
                         camera={{ position: [0, 0, 3], fov: 75 }}
+                        onPointerMissed={(e) => {
+                            if (e.button == 0) {
+                                setSelectedColors([]);
+                            }
+                        }}
                     >
                         <ambientLight intensity={1.2} />
-                        <OrbitControls />
+                        <OrbitControls
+                            mouseButtons={{
+                                LEFT: undefined,
+                                RIGHT: THREE.MOUSE.ROTATE,
+                                MIDDLE: THREE.MOUSE.DOLLY,
+                            }}
+                        />
 
-                        {points.map((point, idx) => (
+                        <Spheres
+                            clickCallback={clickCallback}
+                            selectedColors={selectedColors}
+                            points={points}
+                        />
+                        {/* {points.map((point, idx) => (
                             <mesh
                                 key={idx}
                                 position={point.position}
@@ -328,7 +248,6 @@ const CIESphere = ({
                                 />
                                 <meshStandardMaterial color={point.color} />
 
-                                {/* Add translucent sphere if the color matches selectedColor */}
                                 {selectedColor === point.color && (
                                     <mesh>
                                         <sphereGeometry args={[tolerance, 16, 16]} />
@@ -340,24 +259,40 @@ const CIESphere = ({
                                     </mesh>
                                 )}
                             </mesh>
-                        ))}
-                        {colorantsFamiliesToPlot.map((array, idx) => {
-                            const startPoint = new THREE.Vector3(...array[1][array[1].length - 2]);
-                            const endPoint = new THREE.Vector3(...array[1][array[1].length - 1]);
+                        ))} */}
+                        {selectedColors.map((id) => {
+                            return (
+                                <mesh key={id} position={points[id].position}>
+                                    <sphereGeometry args={[tolerance, 16, 16]}></sphereGeometry>
+                                    <meshBasicMaterial
+                                        toneMapped={false}
+                                        // vertexColors
+                                        color={points[id].color}
+                                        transparent={true}
+                                        opacity={0.3}
+                                    />
+                                </mesh>
+                            );
+                        })}
+                        {colorantsFamiliesToPlot.map((family, idx) => {
+                            const points_positions = family.points.map(({ position }) => position);
+                            const points_colors = family.points.map(({ color }) => color);
+
+                            const startPoint = family.points[family.points.length - 2].position;
+                            const endPoint = family.points[family.points.length - 1].position;
                             const direction = new THREE.Vector3()
                                 .subVectors(endPoint, startPoint)
                                 .normalize();
-                            const arrowLength = 0.05;
+                            const arrowLength = 5;
                             const arrowColor = 'red';
-                            const arrowHeadLength = arrowLength / 2;
+                            const arrowHeadLength = arrowLength / 3;
 
                             return (
                                 <mesh key={String(idx) + '_' + String(idx)}>
                                     <Line
-                                        points={array[1]}
-                                        color="white"
-                                        vertexColors={array[2]}
-                                        lineWidth={10}
+                                        points={points_positions}
+                                        vertexColors={points_colors}
+                                        lineWidth={20}
                                         onClick={() => {
                                             // Only allow up to maxColors
                                             const alreadySelected = current_selectedColors.some(
@@ -367,7 +302,7 @@ const CIESphere = ({
                                                 !alreadySelected &&
                                                 current_selectedColors.length < maxColors
                                             ) {
-                                                const colorantObj = tableau_test?.find(
+                                                const colorantObj = colorantsDatabase?.find(
                                                     (c) => c.id === array[0] && c.hours === 0
                                                 );
                                                 if (colorantObj) {
@@ -386,7 +321,8 @@ const CIESphere = ({
                                                 endPoint,
                                                 arrowLength,
                                                 arrowColor,
-                                                arrowHeadLength
+                                                arrowHeadLength,
+                                                2
                                             )
                                         }
                                     />
@@ -395,7 +331,7 @@ const CIESphere = ({
                         })}
                     </Canvas>
                 )}
-                {current_selectedColors.length > 0 && (
+                {/* {current_selectedColors.length > 0 && (
                     <div className="flex flex-col place-content-start pr-2">
                         <h4 className="self-center">
                             Ongoing selection of colorants <br />
@@ -403,7 +339,7 @@ const CIESphere = ({
                         </h4>
                         {current_selectedColors.map((id_select, i) => {
                             const colorantData =
-                                tableau_test?.filter((d2) => d2.id === id_select.id) || [];
+                                colorantsDatabase?.filter((d2) => d2.id === id_select.id) || [];
                             const maxHours =
                                 colorantData.length > 0
                                     ? Math.max(...colorantData.map((d2) => d2.hours))
@@ -450,7 +386,7 @@ const CIESphere = ({
                             );
                         })}
                     </div>
-                )}
+                )} */}
             </div>
         </>
     );

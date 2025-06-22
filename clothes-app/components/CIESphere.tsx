@@ -81,7 +81,7 @@ function Spheres({
     );
 }
 
-type ColoredPoint = { position: THREE.Vector3; color: THREE.Color };
+type ColoredPoint = { hours: number; position: THREE.Vector3; color: THREE.Color };
 export type Colorant = { id: number; points: ColoredPoint[] };
 
 const CIESphere = ({
@@ -106,6 +106,7 @@ const CIESphere = ({
                     const color = new ColorTranslator({ L: L, a: a, b: b });
                     // const color = labToRgb(L, a, b);
                     spheres.push({
+                        hours: 0,
                         position: new THREE.Vector3(a, b, L - 50),
                         color: new THREE.Color(color.R / 255, color.G / 255, color.B / 255),
                     });
@@ -152,6 +153,7 @@ const CIESphere = ({
                         color_node.B / 255
                     );
                     points.push({
+                        hours: node.hours,
                         position,
                         color,
                     });

@@ -56,6 +56,7 @@ export function DesignProvider({ children }: DesignProviderProps) {
     const [selectedPattern, setSelectedPattern] = useState<File | null>(null); // File objects can't be stored in localStorage
     const [selectedDatabase, setSelectedDatabase] = useState<File | null>(null); // File objects can't be stored in localStorage
     const [requiredColorCount, setRequiredColorCount] = useState<number>(2);
+    const [designColorants, setDesignColorants] = useState<Colorant[]>([]);
 
     return (
         <DesignContext.Provider
@@ -68,6 +69,8 @@ export function DesignProvider({ children }: DesignProviderProps) {
                 setSelectedPattern,
                 requiredColorCount,
                 setRequiredColorCount,
+                designColorants,
+                setDesignColorants,
             }}
         >
             {children}

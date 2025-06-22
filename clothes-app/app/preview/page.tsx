@@ -10,8 +10,6 @@ import {
     floor,
     mod,
     mul,
-    round,
-    sub,
     texture,
     textureLoad,
     uint,
@@ -23,6 +21,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useDesign } from '@/components/DesignContextProvider';
+import { ColorTranslator } from 'colortranslator';
 
 let isLightSelected = false;
 let cvs;
@@ -31,20 +30,34 @@ let ctx: CanvasRenderingContext2D;
 function draw_gradient_line(
     ctx: CanvasRenderingContext2D,
     id: number,
-    color_a: string,
-    color_b: string,
+    colorants: { time: number; color: THREE.Color }[],
+    max_time: number,
     width: number = 100
 ) {
     const gradient = ctx.createLinearGradient(0, 0, width, 0);
-    gradient.addColorStop(0, color_a);
-    gradient.addColorStop(1, color_b);
+
+    colorants.forEach((c) => {
+        const trans = new ColorTranslator(c.color.getHexString());
+        gradient.addColorStop(
+            c.time / max_time,
+            new THREE.Color(trans.R / 255, trans.G / 255, trans.B / 255).getHexString()
+        );
+    });
+    // gradient.addColorStop(1, color_b);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, id, width, 1);
 }
 
-function ThreeScene({ timeRef }: { timeRef: React.RefObject<number> }) {
+function ThreeScene({
+    timeRef,
+    maxTimeRef,
+}: {
+    timeRef: React.RefObject<number>;
+    maxTimeRef: React.RefObject<number>;
+}) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const { selectedColors } = useDesign();
+    const { designColorants } = useDesign();
+
     useEffect(() => {
         async function anonnymous() {
             if (typeof window !== 'undefined') {
@@ -133,9 +146,16 @@ function ThreeScene({ timeRef }: { timeRef: React.RefObject<number> }) {
                 cvs.width = 100;
 
                 cvs.height = 3;
-                draw_gradient_line(ctx, 0, 'red', 'green');
-                draw_gradient_line(ctx, 1, 'red', 'blue');
-                draw_gradient_line(ctx, 2, 'red', 'yellow');
+                designColorants.forEach((c, i) => {
+                    draw_gradient_line(
+                        ctx,
+                        i,
+                        c.points.map((p) => {
+                            return { time: p.hours, color: p.color };
+                        }),
+                        maxTimeRef.current
+                    );
+                });
 
                 document.getElementById('properties_panel')?.appendChild(cvs);
 
@@ -156,7 +176,7 @@ function ThreeScene({ timeRef }: { timeRef: React.RefObject<number> }) {
                 });
 
                 const uTime = uniform(timeRef.current);
-                const uTimeDiv = uniform(1);
+                const uTimeDiv = uniform(maxTimeRef.current);
 
                 const id_packed = uvec3(mul(texture(ids).rgb, 255));
                 const id = add(id_packed.x, mul(id_packed.y, 256), mul(id_packed.z, 256, 256));
@@ -289,15 +309,24 @@ function PropertiesPanels({
 
 export default function Home() {
     const [time, setTime] = useState(0);
+    const [maxTime, setMaxTime] = useState(0);
     const timeRef = useRef(time);
+    const maxTimeRef = useRef(maxTime);
+
     useEffect(() => {
         timeRef.current = time;
-    }, [time]);
+        maxTimeRef.current = maxTime;
+    }, [time, maxTime]);
+
+    const { designColorants } = useDesign();
+    useEffect(() => {
+        setMaxTime(Math.max(...designColorants.flatMap((c) => c.points.map((c2) => c2.hours))));
+    }, [designColorants]);
 
     return (
         <div>
             <div className="h-dvh flex flex-col">
-                <ThreeScene timeRef={timeRef} />
+                <ThreeScene timeRef={timeRef} maxTimeRef={maxTimeRef} />
             </div>
             <ResizablePanelGroup
                 direction="horizontal"

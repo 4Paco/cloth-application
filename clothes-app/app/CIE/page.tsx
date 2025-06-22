@@ -13,6 +13,9 @@ const CIESphere = dynamic(() => import('@/components/CIESphere'), {
 import { ColorButton } from '@/components/ExcelButton';
 import { FileIcon } from 'lucide-react';
 import { SettingSlider, SettingCheckbox } from '@/components/SettingSlider';
+import { ColorTranslator } from 'colortranslator';
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 
 // function Settings() {
 //     return (
@@ -141,21 +144,27 @@ function PlaceholderLoadFile({ setFile }: { setFile: (file: File) => void }) {
 }
 
 function CIESelect() {
-    const { requiredColorCount, selectedDatabase } = useDesign();
-    const [currentSelectedColors, setCurrentSelectedColors] = useState<ColorEntry[]>([]);
+    const { requiredColorCount, selectedDatabase, designColorants, setDesignColorants } =
+        useDesign();
     const [tolerance, setTolerance] = useState(30);
     const [seeAllColorants, setSeeAllColorants] = useState(false);
 
     const [db, setDb] = useState<ColorEntry[]>([]);
 
-    const suggestedColors = [
-        points[1147].color,
-        points[242].color,
-        points[40].color,
-        points[198].color,
-        points[960].color,
-        points[209].color,
-    ];
+    const router = useRouter();
+
+    const maxiHoursDisplayed = Math.max(
+        ...designColorants.flatMap((c) => c.points.map((c2) => c2.hours))
+    );
+
+    // const suggestedColors = [
+    //     points[1147].color,
+    //     points[242].color,
+    //     points[40].color,
+    //     points[198].color,
+    //     points[960].color,
+    //     points[209].color,
+    // ];
 
     useEffect(() => {
         async function parseData() {
@@ -167,11 +176,9 @@ function CIESelect() {
         parseData();
     }, [selectedDatabase]);
 
-    // Only allow selection up to requiredColorCount
-    function handleColorChange(newColors: ColorEntry[]) {
-        if (newColors.length <= requiredColorCount) {
-            setCurrentSelectedColors(newColors);
-        }
+    // Handler to remove colorant by id
+    function handleRemoveColorant(id: number) {
+        setDesignColorants(designColorants.filter((c) => c.id !== id));
     }
 
     return (
@@ -180,8 +187,6 @@ function CIESelect() {
                 <CIESphere
                     colorantsDatabase={db}
                     tolerance={tolerance}
-                    current_selectedColors={currentSelectedColors}
-                    setCurrentSelectedColors={handleColorChange}
                     maxColors={requiredColorCount}
                     seeAllColorants={seeAllColorants}
                 />
@@ -222,6 +227,78 @@ function CIESelect() {
                         <SettingCheckbox value={seeAllColorants} setValue={setSeeAllColorants}>
                             See all colorants
                         </SettingCheckbox>
+
+                        {designColorants.length > 0 && (
+                            <div className="flex flex-col place-content-start pr-2">
+                                <h4 className="self-center">
+                                    Ongoing selection of colorants <br />
+                                    (gradient on {maxiHoursDisplayed} hours):
+                                </h4>
+                                {designColorants.map((id_select, i) => {
+                                    const colorantData =
+                                        db?.filter((d2) => d2.id === id_select.id) || [];
+                                    const maxHours =
+                                        colorantData.length > 0
+                                            ? Math.max(...colorantData.map((d2) => d2.hours))
+                                            : 1;
+                                    const gradientStops = colorantData.map((d2) => {
+                                        const col = new ColorTranslator({
+                                            L: d2.L,
+                                            a: d2.a,
+                                            b: d2.b,
+                                        });
+                                        return `${col.RGB}`;
+                                    });
+                                    return (
+                                        <>
+                                            <div
+                                                key={i + '_container'}
+                                                className="flex flex-row pb-3 pt-2"
+                                            >
+                                                <button
+                                                    onClick={() =>
+                                                        handleRemoveColorant(id_select.id)
+                                                    }
+                                                    className="pr-2"
+                                                >
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="16"
+                                                        height="16"
+                                                        fill="red"
+                                                        className="bi bi-trash-fill ml-2"
+                                                        viewBox="0 0 16 16"
+                                                    >
+                                                        <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5M8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5m3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0" />
+                                                    </svg>
+                                                </button>
+                                                <div
+                                                    key={String(i) + '_gradient'}
+                                                    className="rounded-md"
+                                                    style={{
+                                                        background: `linear-gradient(to right, ${gradientStops.join(
+                                                            ', '
+                                                        )})`,
+                                                        width: `${
+                                                            (maxHours * 210) / maxiHoursDisplayed
+                                                        }px`,
+                                                        height: '20px',
+                                                    }}
+                                                ></div>
+                                            </div>
+                                        </>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        <Button
+                            onClick={() => {
+                                router.push('/preview');
+                            }}
+                        >
+                            Use my colors
+                        </Button>
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>

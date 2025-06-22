@@ -6,13 +6,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ColorEntry } from './color_handling';
 import { ColorTranslator } from 'colortranslator';
+import { useDesign } from './DesignContextProvider';
+import { toast } from 'sonner';
 
 interface CIESphereProps {
     colorantsDatabase: ColorEntry[];
     tolerance: number;
     seeAllColorants: boolean;
-    current_selectedColors: ColorEntry[];
-    setCurrentSelectedColors: (colors: ColorEntry[]) => void;
     maxColors: number;
 }
 
@@ -88,13 +88,11 @@ const CIESphere = ({
     colorantsDatabase,
     tolerance,
     seeAllColorants,
-    current_selectedColors,
-    setCurrentSelectedColors,
     maxColors,
 }: CIESphereProps) => {
+    const { designColorants, setDesignColorants } = useDesign();
     const [selectedColors, setSelectedColors] = useState<number[]>([]);
     const [colorantsFamiliesToPlot, setColorantsFamiliesToPlot] = useState<Colorant[]>([]);
-    const [maxiHoursDisplayed, setMaxiHoursDisplayed] = useState(1);
 
     const points = useMemo(() => {
         const spheres: ColoredPoint[] = [];
@@ -157,10 +155,6 @@ const CIESphere = ({
                         position,
                         color,
                     });
-
-                    if (node.hours > maxiHoursDisplayed) {
-                        setMaxiHoursDisplayed(node.hours);
-                    }
                 });
                 to_plot.push({ id, points });
             });
@@ -168,7 +162,7 @@ const CIESphere = ({
         };
 
         setColorantsFamiliesToPlot(getColorantsToPlot());
-    }, [colorantsDatabase, maxiHoursDisplayed, points, seeAllColorants, selectedColors, tolerance]);
+    }, [colorantsDatabase, points, seeAllColorants, selectedColors, tolerance]);
 
     // const getPointsWithinTolerance = () => {
     //     if (!selectedPosition) return [];
@@ -181,11 +175,6 @@ const CIESphere = ({
     // };
 
     // const pointsWithinTolerance = getPointsWithinTolerance();
-
-    // Handler to remove colorant by id
-    // function handleRemoveColorant(id: number) {
-    //     setCurrentSelectedColors(current_selectedColors.filter((c) => c.id !== id));
-    // }
 
     const clickCallback = (instanceId: number) => {
         setSelectedColors((prev) => {
@@ -297,22 +286,30 @@ const CIESphere = ({
                                         lineWidth={20}
                                         onClick={() => {
                                             // Only allow up to maxColors
-                                            const alreadySelected = current_selectedColors.some(
-                                                (c) => c.id === array[0]
+                                            const alreadySelected = designColorants.some(
+                                                (c) => c.id === family.id
                                             );
                                             if (
                                                 !alreadySelected &&
-                                                current_selectedColors.length < maxColors
+                                                designColorants.length < maxColors
                                             ) {
-                                                const colorantObj = colorantsDatabase?.find(
-                                                    (c) => c.id === array[0] && c.hours === 0
-                                                );
-                                                if (colorantObj) {
-                                                    setCurrentSelectedColors([
-                                                        ...current_selectedColors,
-                                                        colorantObj,
-                                                    ]);
-                                                }
+                                                setDesignColorants((prev) => {
+                                                    return [...prev, family];
+                                                });
+                                                // const colorantObj = colorantsDatabase?.find(
+                                                //     (c) => c.id === family.id && c.hours === 0
+                                                // );
+                                                // if (colorantObj) {
+                                                //     setCurrentSelectedColors([
+                                                //         ...current_selectedColors,
+                                                //         colorantObj,
+                                                //     ]);
+                                                // }
+                                            } else {
+                                                toast('Warning', {
+                                                    description:
+                                                        'You reached the maximum amount of colorants, please remove one before adding another',
+                                                });
                                             }
                                         }}
                                     />
@@ -333,62 +330,6 @@ const CIESphere = ({
                         })}
                     </Canvas>
                 )}
-                {/* {current_selectedColors.length > 0 && (
-                    <div className="flex flex-col place-content-start pr-2">
-                        <h4 className="self-center">
-                            Ongoing selection of colorants <br />
-                            (gradient on {maxiHoursDisplayed} hours):
-                        </h4>
-                        {current_selectedColors.map((id_select, i) => {
-                            const colorantData =
-                                colorantsDatabase?.filter((d2) => d2.id === id_select.id) || [];
-                            const maxHours =
-                                colorantData.length > 0
-                                    ? Math.max(...colorantData.map((d2) => d2.hours))
-                                    : 1;
-                            const gradientStops = colorantData.map((d2) => {
-                                const col = new ColorTranslator({
-                                    L: d2.L,
-                                    a: d2.a,
-                                    b: d2.b,
-                                });
-                                return `${col.RGB}`;
-                            });
-                            return (
-                                <>
-                                    <div key={i + '_container'} className="flex flex-row pb-3 pt-2">
-                                        <button
-                                            onClick={() => handleRemoveColorant(id_select.id)}
-                                            className="pr-2"
-                                        >
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                width="16"
-                                                height="16"
-                                                fill="red"
-                                                className="bi bi-trash-fill ml-2"
-                                                viewBox="0 0 16 16"
-                                            >
-                                                <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5M8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5m3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0" />
-                                            </svg>
-                                        </button>
-                                        <div
-                                            key={String(i) + '_gradient'}
-                                            className="rounded-md"
-                                            style={{
-                                                background: `linear-gradient(to right, ${gradientStops.join(
-                                                    ', '
-                                                )})`,
-                                                width: `${(maxHours * 210) / maxiHoursDisplayed}px`,
-                                                height: '20px',
-                                            }}
-                                        ></div>
-                                    </div>
-                                </>
-                            );
-                        })}
-                    </div>
-                )} */}
             </div>
         </>
     );

@@ -36,11 +36,17 @@ function draw_gradient_line(
 ) {
     const gradient = ctx.createLinearGradient(0, 0, width, 0);
 
+    console.log('colorants', colorants);
+
     colorants.forEach((c) => {
-        const trans = new ColorTranslator(c.color.getHexString());
+        console.log(c);
+        console.log(c.color.getHexString());
+        console.log('time', c.time);
+        console.log('max_time', max_time);
+        const trans = new ColorTranslator('#' + c.color.getHexString());
         gradient.addColorStop(
             c.time / max_time,
-            new THREE.Color(trans.R / 255, trans.G / 255, trans.B / 255).getHexString()
+            '#' + new THREE.Color(trans.R / 255, trans.G / 255, trans.B / 255).getHexString()
         );
     });
     // gradient.addColorStop(1, color_b);
@@ -145,7 +151,7 @@ function ThreeScene({
                 ctx.imageSmoothingEnabled = false;
                 cvs.width = 100;
 
-                cvs.height = 3;
+                cvs.height = Math.max(designColorants.length, 2);
                 designColorants.forEach((c, i) => {
                     draw_gradient_line(
                         ctx,
@@ -285,16 +291,18 @@ function ThreeScene({
 function PropertiesPanels({
     time,
     setTime,
+    maxTime,
 }: {
     time: number;
     setTime: React.Dispatch<React.SetStateAction<number>>;
+    maxTime: number;
 }) {
     return (
         <>
             <label className="mb-1">Time</label>
             <Slider
                 min={0}
-                max={1}
+                max={maxTime}
                 step={0.01}
                 value={[time]}
                 onValueChange={(v) => {
@@ -309,7 +317,7 @@ function PropertiesPanels({
 
 export default function Home() {
     const [time, setTime] = useState(0);
-    const [maxTime, setMaxTime] = useState(0);
+    const [maxTime, setMaxTime] = useState(120);
     const timeRef = useRef(time);
     const maxTimeRef = useRef(maxTime);
 
@@ -320,6 +328,7 @@ export default function Home() {
 
     const { designColorants } = useDesign();
     useEffect(() => {
+        console.log('design', designColorants);
         setMaxTime(Math.max(...designColorants.flatMap((c) => c.points.map((c2) => c2.hours))));
     }, [designColorants]);
 
@@ -344,7 +353,7 @@ export default function Home() {
                     className="rounded-xl px-8 py-4 bg-neutral-200/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto"
                     id="properties_panel"
                 >
-                    <PropertiesPanels time={time} setTime={setTime} />
+                    <PropertiesPanels time={time} setTime={setTime} maxTime={maxTime} />
                     {/* </div> */}
                 </ResizablePanel>
             </ResizablePanelGroup>

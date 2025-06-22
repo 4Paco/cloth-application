@@ -48,52 +48,47 @@ function labToRgb(L: number, a: number, b: number) {
 }
 
 export default function HomePage() {
-    const [demoIndex, setDemoIndex] = useState(0);
-    const demoEntry = tableau_test[demoIndex];
-    const demoColor = labToRgb(demoEntry.L, demoEntry.a, demoEntry.b);
-    // const router = useRouter();
-    // const handleStartNow = () => {
-    //     router.push('/login'); // Redirect to login page
-    // };
-    // const handleExploreTool = () => {
-    //     router.push('/CIE'); // Redirect to palettes page
-    // };
-    return (
-        <main className="min-h-screen bg-neutral-950 text-white font-sans">
-            {/* Hero Section */}
-            <section
-                className="flex flex-col items-center justify-center text-center py-32 px-6 bg-gradient-to-b from-neutral-900 to-black relative overflow-hidden"
-                style={{
-                    backgroundImage: "url('/background.jpg')",
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                }}
-            >
-                <div className="absolute inset-0 bg-black/60 pointer-events-none" />
-                <div className="relative z-10 flex flex-col items-center">
-                    <h1 className="text-5xl md:text-6xl font-bold mb-6 max-w-4xl">
-                        Visualize the evolution of your textile materials
-                    </h1>
-                    <p className="text-lg md:text-xl text-neutral-300 mb-8 max-w-2xl">
-                        An interactive tool for fashion designers concerned with sustainability
-                    </p>
-                    <div className="flex gap-4">
-                        <Link
-                            href="/CIE"
-                            className="bg-white text-black px-6 py-3 rounded-xl font-medium hover:bg-neutral-300 transition"
-                        >
-                            Try the tool
-                        </Link>
-                        <Link
-                            href="#demo"
-                            className="border border-white px-6 py-3 rounded-xl font-medium hover:bg-white hover:text-black transition"
-                        >
-                            See a demo
-                        </Link>
-                    </div>
-                </div>
-            </section>
+
+  const [demoIndex, setDemoIndex] = useState(0);
+  const demoEntry = tableau_test[demoIndex];
+  const demoColor = labToRgb(demoEntry.L, demoEntry.a, demoEntry.b);
+  const router = useRouter();
+  const handleStartNow = () => {
+    router.push('/login'); // Redirect to login page
+  };
+  const handleExploreTool = () => {
+    router.push('/pattern'); // Redirect to palettes page
+  };
+  return (
+    <main className="min-h-screen bg-neutral-950 text-white font-sans">
+      {/* Hero Section */}
+      <section
+        className="flex flex-col items-center justify-center text-center py-32 px-6 bg-gradient-to-b from-neutral-900 to-black relative overflow-hidden"
+        style={{
+          backgroundImage: "url('/background.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        <div className="absolute inset-0 bg-black/60 pointer-events-none" />
+        <div className="relative z-10 flex flex-col items-center">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 max-w-4xl">
+            Visualize the evolution of your textile materials
+          </h1>
+          <p className="text-lg md:text-xl text-neutral-300 mb-8 max-w-2xl">
+            An interactive tool for fashion designers concerned with sustainability
+          </p>
+          <div className="flex gap-4">
+            <Link href="/CIE" className="bg-white text-black px-6 py-3 rounded-xl font-medium hover:bg-neutral-300 transition">
+              Try the tool
+            </Link>
+            <Link href="#demo" className="border border-white px-6 py-3 rounded-xl font-medium hover:bg-white hover:text-black transition">
+              See a demo
+            </Link>
+          </div>
+        </div>
+      </section>
 
             {/* Why Section */}
             <section className="px-6 py-20 bg-neutral-900 text-center">

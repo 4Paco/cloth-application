@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { ColorTranslator } from 'colortranslator';
 import { add, cos, mrt, mul, normalView, output, pass, sin, texture, vec3, vec4 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { useDesign } from '@/components/DesignContextProvider';
+import { useRouter } from 'next/navigation';
 
 let cvs;
 let ctx: CanvasRenderingContext2D;
@@ -71,10 +73,12 @@ function ThreeScene({
     brushSizeRef,
     brushValueRef,
     selectedToolRef,
+    heatmapRef,
 }: {
     brushSizeRef: React.RefObject<number>;
     brushValueRef: React.RefObject<number>;
     selectedToolRef: React.RefObject<Tool>;
+    heatmapRef: React.RefObject<THREE.CanvasTexture>;
 }) {
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -124,6 +128,8 @@ function ThreeScene({
                 heatmap_texture.wrapS = THREE.RepeatWrapping;
                 heatmap_texture.wrapT = THREE.RepeatWrapping;
                 heatmap_texture.repeat.set(scale.x, scale.y);
+
+                heatmapRef.current = heatmap_texture;
 
                 const material = new THREE.MeshBasicNodeMaterial({});
                 const level = mul(texture(heatmap_texture).r, 3.14159265 / 2);
@@ -532,42 +538,57 @@ function PropertiesPanels({
     setBrushSize,
     brushValue,
     setBrushValue,
+    heatmapRef,
 }: {
     brushSize: number;
     setBrushSize: React.Dispatch<React.SetStateAction<number>>;
     brushValue: number;
     setBrushValue: React.Dispatch<React.SetStateAction<number>>;
+    heatmapRef: React.RefObject<THREE.CanvasTexture>;
 }) {
+    const { setHeatmap } = useDesign();
+    const router = useRouter();
+
     return (
-        <div className="flex flex-col w-full">
-            <div className="w-full">
-                <label className="mb-1">Brush size</label>
-                <Slider
-                    min={0.1}
-                    max={4}
-                    step={0.05}
-                    value={[brushSize]}
-                    onValueChange={(v) => {
-                        setBrushSize(v[0]);
-                    }}
-                    className="w-full max-w-[400px]"
-                />
-                <span>{brushSize.toFixed(1)}</span>
+        <div className="flex flex-col w-full space-y-8">
+            <div className="flex flex-col w-full space-y-4">
+                <div className="w-full">
+                    <label className="mb-1">Brush size</label>
+                    <Slider
+                        min={0.1}
+                        max={4}
+                        step={0.05}
+                        value={[brushSize]}
+                        onValueChange={(v) => {
+                            setBrushSize(v[0]);
+                        }}
+                        className="w-full max-w-[400px]"
+                    />
+                    <span>{brushSize.toFixed(1)}</span>
+                </div>
+                <div className="w-full">
+                    <label className="mb-1">Brush strength</label>
+                    <Slider
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={[brushValue]}
+                        onValueChange={(v) => {
+                            setBrushValue(v[0]);
+                        }}
+                        className="w-full max-w-[400px]"
+                    />
+                    <span>{brushValue.toFixed(1)}</span>
+                </div>
             </div>
-            <div className="w-full">
-                <label className="mb-1">Brush strength</label>
-                <Slider
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={[brushValue]}
-                    onValueChange={(v) => {
-                        setBrushValue(v[0]);
-                    }}
-                    className="w-full max-w-[400px]"
-                />
-                <span>{brushValue.toFixed(1)}</span>
-            </div>
+            <Button
+                onClick={() => {
+                    setHeatmap(heatmapRef.current);
+                    router.push('/preview');
+                }}
+            >
+                Go to preview !
+            </Button>
         </div>
     );
 }
@@ -589,6 +610,7 @@ export default function Heatmap() {
     const [selectedTool, setSelectedTool] = useState<Tool>(tools[0]);
     const [brushSize, setBrushSize] = useState<number>(0.5);
     const [brushValue, setBrushValue] = useState<number>(1);
+    const heatmapRef = useRef<THREE.CanvasTexture>(undefined);
 
     const brushSizeRef = useRef(brushSize);
     const brushValueRef = useRef(brushValue);
@@ -601,12 +623,13 @@ export default function Heatmap() {
     }, [brushSize, brushValue, selectedTool]);
 
     return (
-        <div>
+        <>
             <div className="h-dvh flex flex-col">
                 <ThreeScene
                     brushSizeRef={brushSizeRef}
                     selectedToolRef={selectedToolRef}
                     brushValueRef={brushValueRef}
+                    heatmapRef={heatmapRef as React.RefObject<THREE.CanvasTexture>}
                 />
             </div>
             <ResizablePanelGroup
@@ -637,11 +660,12 @@ export default function Heatmap() {
                         setBrushSize={setBrushSize}
                         brushValue={brushValue}
                         setBrushValue={setBrushValue}
+                        heatmapRef={heatmapRef as React.RefObject<THREE.CanvasTexture>}
                     />
                     {/* </div> */}
                 </ResizablePanel>
             </ResizablePanelGroup>
             {/* <div className="fixed bottom-2 left-0 right-0 flex flex-col place-items-center"></div> */}
-        </div>
+        </>
     );
 }

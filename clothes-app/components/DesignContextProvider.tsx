@@ -2,6 +2,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, ChangeEvent } from 'react';
 import { Colorant } from './CIESphere';
+import * as THREE from 'three/webgpu';
 
 // On passe de selectedColor à selectedColors (tableau de couleurs)
 interface DesignContextType {
@@ -15,9 +16,10 @@ interface DesignContextType {
     setRequiredColorCount: React.Dispatch<React.SetStateAction<number>>;
     designColorants: Colorant[];
     setDesignColorants: React.Dispatch<React.SetStateAction<Colorant[]>>;
-    colourantMapping : number[]; // Mapping of base colors to colorants
+    colourantMapping: number[]; // Mapping of base colors to colorants
     setColourantMapping: React.Dispatch<React.SetStateAction<number[]>>;
-    
+    heatmap: THREE.CanvasTexture | null;
+    setHeatmap: React.Dispatch<React.SetStateAction<THREE.CanvasTexture | null>>;
 }
 const DesignContext = createContext<DesignContextType | undefined>(undefined);
 
@@ -61,9 +63,11 @@ export function DesignProvider({ children }: DesignProviderProps) {
     const [requiredColorCount, setRequiredColorCount] = useState<number>(2);
     const [designColorants, setDesignColorants] = useState<Colorant[]>([]);
     const [colourantMapping, setColourantMapping] = useState<number[]>(() => {
-            // Initialize mapping, for example all assigned initially:
-            return Array.from({ length: requiredColorCount }, (_, i) => i);
-        });
+        // Initialize mapping, for example all assigned initially:
+        return Array.from({ length: requiredColorCount }, (_, i) => i);
+    });
+    const [heatmap, setHeatmap] = useState<THREE.CanvasTexture | null>(null);
+
     return (
         <DesignContext.Provider
             value={{
@@ -79,6 +83,8 @@ export function DesignProvider({ children }: DesignProviderProps) {
                 setDesignColorants,
                 colourantMapping,
                 setColourantMapping,
+                heatmap,
+                setHeatmap,
             }}
         >
             {children}

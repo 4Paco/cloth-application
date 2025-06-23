@@ -111,6 +111,7 @@ export default function PatternPage() {
             const colorCount = Math.min(colorSet.size, 10);
             setRequiredColorCount(colorCount);
         } catch (err) {
+            console.error(err);
             setRequiredColorCount(0);
         } finally {
             setLoading(false);

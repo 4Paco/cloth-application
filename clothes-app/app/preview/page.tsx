@@ -1,31 +1,31 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import * as THREE from 'three/webgpu';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/Addons.js';
+import { Slider } from '@/components/ui/slider';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { useDesign } from '@/components/DesignContextProvider';
+import { ColorTranslator } from 'colortranslator';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { WebGPURendererParameters } from 'three/src/renderers/webgpu/WebGPURenderer.js';
+import Controls from '@/components/3d/Controls';
+import { useHelper, useTexture } from '@react-three/drei';
 import {
     add,
     div,
     floor,
     mod,
     mul,
+    sub,
     texture,
     textureLoad,
     uint,
     uniform,
     uvec2,
     uvec3,
-    vec2,
 } from 'three/tsl';
-import { Slider } from '@/components/ui/slider';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { useDesign } from '@/components/DesignContextProvider';
-import { ColorTranslator } from 'colortranslator';
-
-let isLightSelected = false;
-let cvs;
-let ctx: CanvasRenderingContext2D;
+import { Colorant } from '@/components/CIESphere';
 
 function draw_gradient_line(
     ctx: CanvasRenderingContext2D,
@@ -34,299 +34,268 @@ function draw_gradient_line(
     max_time: number,
     width: number = 100
 ) {
-    const gradient = ctx.createLinearGradient(0, 0, width, 0);
+    if (colorants.length == 1) {
+        const color = colorants[0].color;
+        const color_translated = new ColorTranslator({
+            R: 255 * color.r,
+            G: 255 * color.g,
+            B: 255 * color.b,
+        });
+        ctx.fillStyle = color_translated.RGB;
+        ctx.fillRect(0, id, width, 1);
+    } else {
+        const gradient = ctx.createLinearGradient(0, 0, width, 0);
 
-    console.log('colorants', colorants);
+        colorants.forEach(({ time, color }) => {
+            const color_translated = new ColorTranslator({
+                R: 255 * color.r,
+                G: 255 * color.g,
+                B: 255 * color.b,
+            });
+            gradient.addColorStop(time / max_time, color_translated.RGB);
+        });
 
-    colorants.forEach((c) => {
-        console.log(c);
-        console.log(c.color.getHexString());
-        console.log('time', c.time);
-        console.log('max_time', max_time);
-        const trans = new ColorTranslator('#' + c.color.getHexString());
-        gradient.addColorStop(
-            c.time / max_time,
-            '#' + new THREE.Color(trans.R / 255, trans.G / 255, trans.B / 255).getHexString()
-        );
-    });
-    // gradient.addColorStop(1, color_b);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, id, width, 1);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, id, width, 1);
+    }
 }
 
-function ThreeScene({
-    timeRef,
-    maxTimeRef,
-}: {
-    timeRef: React.RefObject<number>;
-    maxTimeRef: React.RefObject<number>;
-}) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const { designColorants, selectedPattern, colourantMapping, setDesignColorants, setColourantMapping } = useDesign();
+function ThreeScene({ currentTime, maxTime }: { currentTime: number; maxTime: number }) {
+    const [uvScale] = useState<THREE.Vector2>(new THREE.Vector2(100, 100));
+    const preview_object = useLoader(OBJLoader, 'tshirt2.obj');
+    const textures = useTexture({
+        albedo: 'default_cloth/albedo.png',
+        normal: 'default_cloth/normal.png',
+        height: 'default_cloth/height.png',
+        alpha: 'default_cloth/alpha.png',
+        ambient_occlusion: 'default_cloth/height.png',
+        ids: 'default_cloth/ids.png',
+        pixels: 'pixels3.png',
+    });
 
-    // Reset colourantMapping to [0, 1, ...] with the same length as designColorants
-    // But first, reorder designColorants to match the current colourantMapping order
+    const [lookup_resolution] = useState(10);
+
+    const { designColorants } = useDesign();
+
+    const uTime = useMemo(() => uniform(0), []);
+    useFrame(() => {
+        uTime.value = currentTime;
+    });
+
+    const color_evolution_lookup_canvas = useMemo(() => {
+        const colorants: Colorant[] =
+            designColorants.length > 0
+                ? designColorants
+                : [
+                      {
+                          id: 0,
+                          points: [
+                              {
+                                  hours: 0,
+                                  color: new THREE.Color(1, 0, 0),
+                                  position: new THREE.Vector3(0, 0, 0),
+                              },
+                              {
+                                  hours: 100,
+                                  color: new THREE.Color(1, 1, 0),
+                                  position: new THREE.Vector3(0, 0, 0),
+                              },
+                          ],
+                      },
+                      {
+                          id: 1,
+                          points: [
+                              {
+                                  hours: 0,
+                                  color: new THREE.Color(0, 1, 0),
+                                  position: new THREE.Vector3(0, 0, 0),
+                              },
+                              {
+                                  hours: 100,
+                                  color: new THREE.Color(0, 1, 0),
+                                  position: new THREE.Vector3(0, 0, 0),
+                              },
+                          ],
+                      },
+                      {
+                          id: 2,
+                          points: [
+                              {
+                                  hours: 0,
+                                  color: new THREE.Color(0, 0, 1),
+                                  position: new THREE.Vector3(0, 0, 0),
+                              },
+                              {
+                                  hours: 100,
+                                  color: new THREE.Color(0, 0, 1),
+                                  position: new THREE.Vector3(0, 0, 0),
+                              },
+                          ],
+                      },
+                  ];
+        const cvs = document.createElement('canvas');
+        cvs.width = lookup_resolution;
+        cvs.height = colorants.length;
+        const ctx = cvs.getContext('2d')!;
+        ctx.imageSmoothingEnabled = false;
+
+        colorants.forEach((c, i) => {
+            draw_gradient_line(
+                ctx,
+                i,
+                c.points.map((p) => {
+                    return { time: p.hours, color: p.color };
+                }),
+                maxTime,
+                lookup_resolution
+            );
+        });
+
+        return cvs;
+    }, [designColorants, lookup_resolution, maxTime]);
+
+    const color_evolution_lookup_texture = useMemo(() => {
+        const texture = new THREE.CanvasTexture(color_evolution_lookup_canvas);
+        texture.flipY = false;
+        return texture;
+    }, [color_evolution_lookup_canvas]);
+
     useEffect(() => {
-        if (
-            designColorants &&
-            setColourantMapping &&
-            setDesignColorants &&
-            Array.isArray(colourantMapping) &&
-            colourantMapping.length === designColorants.length
-        ) {
-            // Reorder designColorants according to colourantMapping
-            const reordered = colourantMapping.map(idx => designColorants[idx]);
-            // Only update if reordered is different from current designColorants
-            const isDifferent =
-                reordered.length !== designColorants.length ||
-                reordered.some((item, idx) => item !== designColorants[idx]);
-            if (isDifferent) {
-                setDesignColorants(reordered);
-                // Then reset mapping to [0, 1, ...]
-                setColourantMapping(Array.from({ length: reordered.length }, (_, i) => i));
+        color_evolution_lookup_texture.needsUpdate = true;
+    }, [color_evolution_lookup_texture]);
+
+    useMemo(() => {
+        const minFilter = THREE.LinearFilter;
+        const magFilter = THREE.LinearFilter;
+
+        textures.albedo.wrapS = THREE.RepeatWrapping;
+        textures.albedo.wrapT = THREE.RepeatWrapping;
+        textures.albedo.minFilter = minFilter;
+        textures.albedo.magFilter = magFilter;
+        textures.albedo.flipY = true;
+        textures.albedo.repeat.set(uvScale.x, uvScale.y);
+
+        textures.normal.wrapS = THREE.RepeatWrapping;
+        textures.normal.wrapT = THREE.RepeatWrapping;
+        textures.normal.minFilter = minFilter;
+        textures.normal.magFilter = magFilter;
+        textures.normal.flipY = true;
+        textures.normal.repeat.set(uvScale.x, uvScale.y);
+
+        textures.height.wrapS = THREE.RepeatWrapping;
+        textures.height.wrapT = THREE.RepeatWrapping;
+        textures.height.minFilter = minFilter;
+        textures.height.magFilter = magFilter;
+        textures.height.flipY = true;
+        textures.height.repeat.set(uvScale.x, uvScale.y);
+
+        textures.alpha.wrapS = THREE.RepeatWrapping;
+        textures.alpha.wrapT = THREE.RepeatWrapping;
+        textures.alpha.minFilter = minFilter;
+        textures.alpha.magFilter = magFilter;
+        textures.alpha.flipY = true;
+        textures.alpha.repeat.set(uvScale.x, uvScale.y);
+
+        textures.ambient_occlusion.wrapS = THREE.RepeatWrapping;
+        textures.ambient_occlusion.wrapT = THREE.RepeatWrapping;
+        textures.ambient_occlusion.minFilter = minFilter;
+        textures.ambient_occlusion.magFilter = magFilter;
+        textures.ambient_occlusion.flipY = true;
+        textures.ambient_occlusion.repeat.set(uvScale.x, uvScale.y);
+
+        textures.ids.wrapS = THREE.RepeatWrapping;
+        textures.ids.wrapT = THREE.RepeatWrapping;
+        textures.ids.minFilter = THREE.NearestFilter;
+        textures.ids.magFilter = THREE.NearestFilter;
+        textures.ids.flipY = true;
+        textures.ids.repeat.set(uvScale.x, uvScale.y);
+
+        textures.pixels.wrapS = THREE.ClampToEdgeWrapping;
+        textures.pixels.wrapT = THREE.ClampToEdgeWrapping;
+        textures.pixels.minFilter = THREE.NearestFilter;
+        textures.pixels.magFilter = THREE.NearestFilter;
+        textures.pixels.flipY = true;
+        textures.pixels.generateMipmaps = false;
+
+        textures.albedo.needsUpdate = true;
+        textures.normal.needsUpdate = true;
+        textures.height.needsUpdate = true;
+        textures.alpha.needsUpdate = true;
+        textures.ambient_occlusion.needsUpdate = true;
+        textures.ids.needsUpdate = true;
+        textures.pixels.needsUpdate = true;
+    }, [textures, uvScale.x, uvScale.y]);
+
+    useMemo(() => {
+        const preview_material = new THREE.MeshStandardNodeMaterial({
+            alphaMap: textures.alpha,
+            normalMap: textures.normal,
+            bumpMap: textures.height,
+            transparent: false,
+        });
+
+        const uTimeDiv = uniform(maxTime);
+
+        const id_packed = uvec3(mul(texture(textures.ids).rgb, 255));
+        const id = add(id_packed.x, mul(id_packed.y, 256), mul(id_packed.z, 256, 256));
+        const color_index = uint(
+            mul(128, textureLoad(textures.pixels, uvec2(mod(id, 24), div(id, 24))).r)
+        );
+        const color = textureLoad(
+            color_evolution_lookup_texture,
+            uvec2(floor(mul(div(uTime, uTimeDiv), sub(lookup_resolution, 1))), color_index)
+        );
+        preview_material.colorNode = mul(
+            color,
+            texture(textures.albedo),
+            texture(textures.ambient_occlusion)
+        );
+
+        preview_object.traverse(function (child) {
+            const child_mesh = child as THREE.Mesh;
+            if (child_mesh.isMesh) {
+                child_mesh.material = preview_material;
+                child_mesh.material.needsUpdate = true;
             }
-        } else if (
-            designColorants &&
-            setColourantMapping &&
-            (!Array.isArray(colourantMapping) || colourantMapping.length !== designColorants.length)
-        ) {
-            setColourantMapping(Array.from({ length: designColorants.length }, (_, i) => i));
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [designColorants, colourantMapping, setColourantMapping, setDesignColorants]);
-    useEffect(() => {
-        async function setupScene() {
-            if (!designColorants || designColorants.length === 0) {
-                return;
-            }
-            if (typeof window !== 'undefined') {
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(
-                    75,
-                    window.innerWidth / window.innerHeight,
-                    0.001,
-                    1000
-                );
-                // const renderer = new THREE.WebGLRenderer({ alpha: true });
-                const renderer = new THREE.WebGPURenderer({ alpha: true });
-                // renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.setSize(
-                    containerRef.current?.clientWidth ?? 0,
-                    containerRef.current?.clientHeight ?? 0
-                );
+        });
 
-                containerRef.current?.appendChild(renderer.domElement);
-                camera.position.z = 5;
+        return preview_material;
+    }, [
+        color_evolution_lookup_texture,
+        lookup_resolution,
+        maxTime,
+        preview_object,
+        textures.albedo,
+        textures.alpha,
+        textures.ambient_occlusion,
+        textures.height,
+        textures.ids,
+        textures.normal,
+        textures.pixels,
+        uTime,
+    ]);
 
-                const scale = { x: 100, y: 100 };
+    const directionalLightRef = useRef<THREE.DirectionalLight>(null);
+    useHelper(
+        directionalLightRef as React.RefObject<THREE.Object3D<THREE.Object3DEventMap>>,
+        THREE.DirectionalLightHelper,
+        0.5,
+        'red'
+    );
 
-                const minFilter = THREE.LinearFilter;
-                const magFilter = THREE.LinearFilter;
-
-                const albedo = new THREE.TextureLoader().load('./default_cloth/albedo.png');
-                albedo.wrapS = THREE.RepeatWrapping;
-                albedo.wrapT = THREE.RepeatWrapping;
-                albedo.minFilter = minFilter;
-                albedo.magFilter = magFilter;
-                albedo.flipY = false;
-                albedo.repeat.set(scale.x, scale.y);
-
-                const normal = new THREE.TextureLoader().load('./default_cloth/normal.png');
-                normal.wrapS = THREE.RepeatWrapping;
-                normal.wrapT = THREE.RepeatWrapping;
-                normal.minFilter = minFilter;
-                normal.magFilter = magFilter;
-                normal.flipY = false;
-                normal.repeat.set(scale.x, scale.y);
-
-                const height = new THREE.TextureLoader().load('./default_cloth/height.png');
-                height.wrapS = THREE.RepeatWrapping;
-                height.wrapT = THREE.RepeatWrapping;
-                height.minFilter = minFilter;
-                height.magFilter = magFilter;
-                height.flipY = false;
-                height.repeat.set(scale.x, scale.y);
-
-                const alpha = new THREE.TextureLoader().load('./default_cloth/alpha.png');
-                alpha.wrapS = THREE.RepeatWrapping;
-                alpha.wrapT = THREE.RepeatWrapping;
-                alpha.minFilter = minFilter;
-                alpha.magFilter = magFilter;
-                alpha.flipY = false;
-                alpha.repeat.set(scale.x, scale.y);
-
-                const ao = new THREE.TextureLoader().load('./default_cloth/height.png');
-                ao.wrapS = THREE.RepeatWrapping;
-                ao.wrapT = THREE.RepeatWrapping;
-                ao.minFilter = minFilter;
-                ao.magFilter = magFilter;
-                ao.flipY = false;
-                ao.repeat.set(scale.x, scale.y);
-
-                const ids = new THREE.TextureLoader().load('./default_cloth/ids.png');
-                ids.wrapS = THREE.RepeatWrapping;
-                ids.wrapT = THREE.RepeatWrapping;
-                ids.minFilter = THREE.NearestFilter;
-                ids.magFilter = THREE.NearestFilter;
-                ids.flipY = false;
-                ids.repeat.set(scale.x, scale.y);
-
-                let pixels;
-                if (selectedPattern) {
-                    const patternUrl = URL.createObjectURL(selectedPattern);
-                    pixels = new THREE.TextureLoader().load(patternUrl, () => {
-                        URL.revokeObjectURL(patternUrl); // Clean up after loading
-                    });
-                } else {
-                    pixels = new THREE.TextureLoader().load('./pixels3.png'); // fallback
-                }
-                pixels.wrapS = THREE.ClampToEdgeWrapping;
-                pixels.wrapT = THREE.ClampToEdgeWrapping;
-                pixels.minFilter = THREE.NearestFilter;
-                pixels.magFilter = THREE.NearestFilter;
-                pixels.flipY = false;
-                pixels.generateMipmaps = false;
-
-                cvs = document.createElement('canvas');
-                ctx = cvs.getContext('2d') as CanvasRenderingContext2D;
-                ctx.imageSmoothingEnabled = false;
-                cvs.width = 100;
-                console.log('designColorants', designColorants);
-                cvs.height = Math.max(designColorants.length, 2);
-                designColorants.forEach((c, i) => {
-                    draw_gradient_line(
-                        ctx,
-                        i,
-                        c.points.map((p) => {
-                            return { time: p.hours, color: p.color };
-                        }),
-                        maxTimeRef.current
-                    );
-                });
-
-                document.getElementById('properties_panel')?.appendChild(cvs);
-
-                const color_evolution_lookup = new THREE.CanvasTexture(cvs);
-                color_evolution_lookup.wrapS = THREE.ClampToEdgeWrapping;
-                color_evolution_lookup.wrapT = THREE.ClampToEdgeWrapping;
-                color_evolution_lookup.minFilter = THREE.NearestFilter;
-                color_evolution_lookup.magFilter = THREE.NearestFilter;
-                color_evolution_lookup.flipY = false;
-                color_evolution_lookup.generateMipmaps = false;
-
-                const preview_material = new THREE.MeshStandardNodeMaterial({
-                    map: albedo,
-                    alphaMap: alpha,
-                    normalMap: normal,
-                    bumpMap: height,
-                    transparent: false,
-                });
-
-                const uTime = uniform(timeRef.current);
-                const uTimeDiv = uniform(maxTimeRef.current);
-
-                const id_packed = uvec3(mul(texture(ids).rgb, 255));
-                const id = add(id_packed.x, mul(id_packed.y, 256), mul(id_packed.z, 256, 256));
-                const pixels_value = textureLoad(pixels, vec2(mod(id, 24), div(id, 24)));
-                const color_index = uint(mul(pixels_value.r, 128));
-                const color_lookup_id = textureLoad(
-                    color_evolution_lookup,
-                    uvec2(floor(mul(div(uTime, uTimeDiv), 99)), color_index)
-                );
-                preview_material.colorNode = mul(color_lookup_id, texture(albedo), texture(ao));
-
-                const light = new THREE.AmbientLight(0xaaaaaa);
-                const pointlight = new THREE.PointLight(0xffffff);
-
-                const loader = new OBJLoader();
-                const preview_mesh = await loader.loadAsync('tshirt2.obj');
-                preview_mesh.traverse(function (child) {
-                    const child_mesh = child as THREE.Mesh;
-                    if (child_mesh.isMesh) {
-                        child_mesh.material = preview_material;
-                    }
-                });
-
-                pointlight.position.x = -3;
-                pointlight.position.z = 1;
-
-                scene.add(preview_mesh);
-                scene.add(light);
-                scene.add(pointlight);
-                const pointLightHelper = new THREE.PointLightHelper(pointlight, 0.2, 0xff0000); // red helper
-                scene.add(pointLightHelper);
-
-                // Add raycaster and mouse logic here
-                const raycaster = new THREE.Raycaster();
-                const mouse = new THREE.Vector2();
-
-                function onClick(event: MouseEvent) {
-                    if (!renderer.domElement) return;
-                    const rect = renderer.domElement.getBoundingClientRect();
-                    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-                    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-                    raycaster.setFromCamera(mouse, camera);
-
-                    if (!isLightSelected) {
-                        // First click: check if the helper was clicked
-                        const intersects = raycaster.intersectObject(pointLightHelper, true);
-                        if (intersects.length > 0) {
-                            isLightSelected = true;
-                        }
-                    } else {
-                        // Second click: move the light to the clicked position on a plane (e.g., z=0)
-                        // We'll use a plane at z=0 for demonstration
-                        const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-                        const intersection = new THREE.Vector3();
-                        raycaster.ray.intersectPlane(planeZ, intersection);
-                        pointlight.position.copy(intersection);
-                        pointLightHelper.update();
-                        isLightSelected = false;
-                    }
-                }
-
-                renderer.domElement.addEventListener('click', onClick);
-
-                const controls = new OrbitControls(camera, renderer.domElement);
-
-                // Render the scene and camera
-                renderer.render(scene, camera);
-
-                // Add this function inside the useEffect hook
-                const renderScene = (t: number) => {
-                    pointlight.position.x = Math.cos(0.0015 * t);
-                    pointlight.position.y = Math.cos(0.001 * t);
-                    uTime.value = timeRef.current;
-                    controls.update();
-                    renderer.render(scene, camera);
-                    requestAnimationFrame(renderScene);
-                };
-
-                // Call the renderScene function to start the animation loop
-                renderScene(0);
-
-                const handleResize = () => {
-                    const width = window.innerWidth;
-                    const height = window.innerHeight;
-
-                    camera.aspect = width / height;
-                    camera.updateProjectionMatrix();
-
-                    renderer.setSize(width, height);
-                };
-
-                window.addEventListener('resize', handleResize);
-
-                // Clean up the event listener when the component is unmounted
-                return () => {
-                    window.removeEventListener('resize', handleResize);
-                };
-            }
-        }
-        setupScene();
-    }, [selectedPattern, designColorants]);
-    return <div className="flex-1" ref={containerRef} />;
+    return (
+        <>
+            <Controls />
+            <ambientLight color="white" intensity={0.05} />
+            <directionalLight
+                color={new THREE.Color(1, 1, 1)}
+                position={new THREE.Vector3(1, 1, 1)}
+                intensity={1}
+                ref={directionalLightRef}
+            />
+            <primitive object={preview_object} />
+        </>
+    );
 }
 
 function PropertiesPanels({
@@ -357,45 +326,55 @@ function PropertiesPanels({
 }
 
 export default function Home() {
-    const [time, setTime] = useState(0);
-    const [maxTime, setMaxTime] = useState(120);
-    const timeRef = useRef(time);
-    const maxTimeRef = useRef(maxTime);
-
-    useEffect(() => {
-        timeRef.current = time;
-        maxTimeRef.current = maxTime;
-    }, [time, maxTime]);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [maxTime, setMaxTime] = useState(100);
 
     const { designColorants } = useDesign();
     useEffect(() => {
-        console.log('design', designColorants);
-        setMaxTime(Math.max(...designColorants.flatMap((c) => c.points.map((c2) => c2.hours))));
+        if (designColorants.length > 0) {
+            setMaxTime(Math.max(...designColorants.flatMap((c) => c.points.map((c2) => c2.hours))));
+        }
     }, [designColorants]);
 
     return (
         <div>
-            <div className="h-dvh flex flex-col">
-                <ThreeScene timeRef={timeRef} maxTimeRef={maxTimeRef} />
+            <div className="h-dvh">
+                <Canvas
+                    frameloop="demand"
+                    gl={async (props) => {
+                        const renderer = new THREE.WebGPURenderer({
+                            antialias: true,
+                            ...(props as WebGPURendererParameters | undefined),
+                        });
+                        await renderer.init();
+                        return renderer;
+                    }}
+                    camera={{ near: 0.001, far: 1000, fov: 75 }}
+                >
+                    <ThreeScene currentTime={currentTime} maxTime={maxTime} />
+                </Canvas>
             </div>
             <ResizablePanelGroup
                 direction="horizontal"
                 className="fixed bottom-2 left-2 right-2 top-2 w-auto! h-auto! pointer-events-none"
             >
                 <ResizablePanel
-                    defaultSize={80}
+                    defaultSize={85}
                     className="flex flex-col place-items-center justify-end"
                 >
                     <div className="px-2 py-2 rounded-xl bg-neutral-200/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto"></div>
                 </ResizablePanel>
                 <ResizableHandle />
                 <ResizablePanel
-                    defaultSize={10}
+                    defaultSize={15}
                     className="rounded-xl px-8 py-4 bg-neutral-200/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto"
                     id="properties_panel"
                 >
-                    <PropertiesPanels time={time} setTime={setTime} maxTime={maxTime} />
-                    {/* </div> */}
+                    <PropertiesPanels
+                        time={currentTime}
+                        setTime={setCurrentTime}
+                        maxTime={maxTime}
+                    />
                 </ResizablePanel>
             </ResizablePanelGroup>
         </div>

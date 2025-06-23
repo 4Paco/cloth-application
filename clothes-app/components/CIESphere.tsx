@@ -199,6 +199,7 @@ const CIESphere = ({
                                 setSelectedColors([]);
                             }
                         }}
+                        frameloop="demand"
                     >
                         <ambientLight intensity={1.2} />
                         <OrbitControls

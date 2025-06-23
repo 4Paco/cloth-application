@@ -140,7 +140,8 @@ function PlaceholderLoadFile({ setFile }: { setFile: (file: File) => void }) {
         <div className="flex flex-col items-center justify-center h-full w-full">
             <h2 className="text-2xl font-bold mb-4 text-white">Upload your colorant CSV file</h2>
             <p className="mb-6 text-white/80 text-center max-w-md">
-                To get started, please upload a CSV file containing your colorant data. This will allow you to visualize and select colors for your design.
+                To get started, please upload a CSV file containing your colorant data. This will
+                allow you to visualize and select colors for your design.
             </p>
             <ColorButton callback={callback}>
                 <FileIcon className="mr-2" /> Open File
@@ -256,11 +257,8 @@ function CIESelect() {
                                         return `${col.RGB}`;
                                     });
                                     return (
-                                        <>
-                                            <div
-                                                key={i + '_container'}
-                                                className="flex flex-row pb-3 pt-2"
-                                            >
+                                        <div key={i + '_container'}>
+                                            <div className="flex flex-row pb-3 pt-2">
                                                 <button
                                                     onClick={() =>
                                                         handleRemoveColorant(id_select.id)
@@ -292,7 +290,7 @@ function CIESelect() {
                                                     }}
                                                 ></div>
                                             </div>
-                                        </>
+                                        </div>
                                     );
                                 })}
                             </div>

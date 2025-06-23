@@ -16,12 +16,58 @@ type PatternPreviewProps = {
   patternFile: File;
   colorants: string[]; // hex codes, e.g. ['#ff0000', '#00ff00']
   baseColors: [number, number, number][]; // e.g. [[255,0,0],[0,255,0]]
+  colormapping : number[]; // e.g. [0, 1, 2] for mapping base colors to colorants
 };
+
+function colorDistanceRGB(rgb1: [number, number, number], rgb2: [number, number, number]): number {
+    return Math.sqrt(
+        Math.pow(rgb1[0] - rgb2[0], 2) +
+        Math.pow(rgb1[1] - rgb2[1], 2) +
+        Math.pow(rgb1[2] - rgb2[2], 2)
+    );
+}
+
+function createColorMap(
+  baseColors: [number, number, number][],
+  colorants: string[]
+): number[] {
+  // Initialize map with -1 (unassigned)
+  const colorMap: number[] = Array(baseColors.length).fill(-1);
+
+  // List of all [baseIndex, colorantIndex, distance]
+  const candidates: { baseIndex: number; colorantIndex: number; distance: number }[] = [];
+
+  baseColors.forEach((base, baseIndex) => {
+    colorants.forEach((colorant, colorantIndex) => {
+      const rgb = hexToRgb(colorant);
+      const distance = colorDistanceRGB(base, [rgb.r, rgb.g, rgb.b]);
+      candidates.push({ baseIndex, colorantIndex, distance });
+    });
+  });
+
+  // Sort all pairs by distance (closest first)
+  candidates.sort((a, b) => a.distance - b.distance);
+
+  const usedBase = new Set<number>();
+  const usedColorants = new Set<number>();
+
+  for (const { baseIndex, colorantIndex } of candidates) {
+    if (!usedBase.has(baseIndex) && !usedColorants.has(colorantIndex)) {
+      colorMap[baseIndex] = colorantIndex;
+      usedBase.add(baseIndex);
+      usedColorants.add(colorantIndex);
+    }
+  }
+
+  return colorMap;
+}
+
 
 export default function PatternPreview({
     patternFile,
     colorants,
     baseColors,
+    colormapping,
 }: PatternPreviewProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -60,7 +106,7 @@ export default function PatternPreview({
         };
         return () => URL.revokeObjectURL(img.src);
     }, [patternFile, colorants, baseColors]);
-
+    colormapping = createColorMap(baseColors, colorants);
     return (
         <section className="p-6 bg-gray-800 text-white rounded-lg shadow-lg">
             <h2 className="text-2xl font-semibold mb-4 text-center">Pattern Preview</h2>
@@ -89,7 +135,7 @@ export default function PatternPreview({
                             <span className="text-xl">→</span>
                             <span
                                 style={{
-                                    background: colorants[i],
+                                    background: colorants[colormapping[i]],
                                     width: 28,
                                     height: 28,
                                     borderRadius: '50%',

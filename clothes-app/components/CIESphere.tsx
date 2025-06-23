@@ -177,14 +177,17 @@ const CIESphere = ({
     // const pointsWithinTolerance = getPointsWithinTolerance();
 
     const clickCallback = (instanceId: number) => {
-        setSelectedColors((prev) => {
-            if (prev.includes(instanceId)) {
-                return prev.filter((id) => id !== instanceId);
-            } else {
-                //return [...prev, instanceId];
-                return [instanceId];
-            }
-        });
+        if (selectedColors.length==0) {
+            setSelectedColors([instanceId]);
+        }
+        // setSelectedColors((prev) => {
+        //     if (prev.includes(instanceId)) {
+        //         return prev.filter((id) => id !== instanceId);
+        //     } else {
+        //         //return [...prev, instanceId];
+        //         return [instanceId];
+        //     }
+        // });
     };
 
     return (

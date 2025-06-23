@@ -17,7 +17,6 @@ import { ColorTranslator } from 'colortranslator';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 
-
 // function Settings() {
 //     return (
 //         <div style={{ width: '200px', background: '#111', padding: '1rem' }}>
@@ -203,7 +202,7 @@ function CIESelect() {
                     defaultSize={85}
                     className="flex flex-col place-items-center justify-end"
                 >
-                    <div className="px-2 py-2 rounded-xl bg-neutral-200/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto">
+                    <div className="px-2 py-2 rounded-xl bg-neutral-400/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto">
                         Settings
                         {/* <Settings /> */}
                     </div>
@@ -211,7 +210,7 @@ function CIESelect() {
                 <ResizableHandle className="bg-transparent" />
                 <ResizablePanel
                     defaultSize={15}
-                    className="rounded-xl px-8 py-4 bg-neutral-200/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto"
+                    className="rounded-xl px-8 py-4 bg-neutral-400/80 backdrop-blur-2xl flex flex-col items-center z-10 pointer-events-auto"
                 >
                     {/* <div className="fixed rounded-xl right-2 top-2 bottom-2 px-8 py-4 bg-neutral-200/80 backdrop-blur flex flex-col items-center z-10"> */}
                     <div className="flex flex-col w-full">
@@ -295,7 +294,6 @@ function CIESelect() {
 
                         <Button
                             onClick={() => {
-                                
                                 router.push('/CIE/preview');
                             }}
                         >
@@ -316,7 +314,7 @@ export default function Home() {
     };
 
     return (
-        <main className="w-dvw h-dvh flex flex-col">
+        <main className="w-dvw h-dvh flex flex-col bg-black">
             {selectedDatabase == undefined ? (
                 <div className="w-dvw h-dvh flex flex-row place-items-center justify-center">
                     <PlaceholderLoadFile setFile={setFile} />

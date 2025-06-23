@@ -36,7 +36,7 @@ function Spheres({
     );
     const meshRef = useRef<THREE.InstancedMesh>(undefined);
 
-    const opacity = selectedColors.length > 0 ? 0.05 : 1.0;
+    let opacity = selectedColors.length > 0 ? 0.4 : 1.0;
 
     // We have to use useFrame because react is dumb :/
     useFrame(() => {
@@ -73,9 +73,9 @@ function Spheres({
             </sphereGeometry>
             <meshBasicMaterial
                 toneMapped={false}
-                vertexColors
+                vertexColorsgit
                 transparent={true}
-                opacity={opacity}
+                opacity={opacity} //selectedColors.includes(e.instanceId) ? 0.4 : 1.0}
             />
         </instancedMesh>
     );
@@ -181,7 +181,8 @@ const CIESphere = ({
             if (prev.includes(instanceId)) {
                 return prev.filter((id) => id !== instanceId);
             } else {
-                return [...prev, instanceId];
+                //return [...prev, instanceId];
+                return [instanceId];
             }
         });
     };
@@ -192,7 +193,7 @@ const CIESphere = ({
                 {points.length > 0 && (
                     <Canvas
                         id="canvas"
-                        camera={{ position: [0, 0, 3], fov: 75 }}
+                        camera={{ position: [0, 0, 250], fov: 75 }}
                         onPointerMissed={(e) => {
                             if (e.button == 0) {
                                 setSelectedColors([]);
@@ -260,7 +261,7 @@ const CIESphere = ({
                                         // vertexColors
                                         color={points[id].color}
                                         transparent={true}
-                                        opacity={0.3}
+                                        opacity={0.4}
                                     />
                                 </mesh>
                             );

@@ -63,9 +63,13 @@ function ThreeScene({
 }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const { designColorants } = useDesign();
+    const { selectedPattern } = useDesign();
 
     useEffect(() => {
-        async function anonnymous() {
+        async function setupScene() {
+            if (!designColorants || designColorants.length === 0) {
+                return;
+            }
             if (typeof window !== 'undefined') {
                 const scene = new THREE.Scene();
                 const camera = new THREE.PerspectiveCamera(
@@ -138,7 +142,15 @@ function ThreeScene({
                 ids.flipY = false;
                 ids.repeat.set(scale.x, scale.y);
 
-                const pixels = new THREE.TextureLoader().load('./pixels3.png');
+                let pixels;
+                if (selectedPattern) {
+                    const patternUrl = URL.createObjectURL(selectedPattern);
+                    pixels = new THREE.TextureLoader().load(patternUrl, () => {
+                        URL.revokeObjectURL(patternUrl); // Clean up after loading
+                    });
+                } else {
+                    pixels = new THREE.TextureLoader().load('./pixels3.png'); // fallback
+                }
                 pixels.wrapS = THREE.ClampToEdgeWrapping;
                 pixels.wrapT = THREE.ClampToEdgeWrapping;
                 pixels.minFilter = THREE.NearestFilter;
@@ -150,7 +162,7 @@ function ThreeScene({
                 ctx = cvs.getContext('2d') as CanvasRenderingContext2D;
                 ctx.imageSmoothingEnabled = false;
                 cvs.width = 100;
-
+                console.log('designColorants', designColorants);
                 cvs.height = Math.max(designColorants.length, 2);
                 designColorants.forEach((c, i) => {
                     draw_gradient_line(
@@ -283,8 +295,8 @@ function ThreeScene({
                 };
             }
         }
-        anonnymous();
-    }, []);
+        setupScene();
+    }, [selectedPattern, designColorants]);
     return <div className="flex-1" ref={containerRef} />;
 }
 

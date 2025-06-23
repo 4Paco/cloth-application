@@ -15,6 +15,7 @@ interface DesignContextType {
     setRequiredColorCount: React.Dispatch<React.SetStateAction<number>>;
     designColorants: Colorant[];
     setDesignColorants: React.Dispatch<React.SetStateAction<Colorant[]>>;
+    
 }
 const DesignContext = createContext<DesignContextType | undefined>(undefined);
 

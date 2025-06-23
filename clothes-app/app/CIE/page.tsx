@@ -137,9 +137,15 @@ function PlaceholderLoadFile({ setFile }: { setFile: (file: File) => void }) {
     };
 
     return (
-        <ColorButton callback={callback}>
-            <FileIcon /> Open File
-        </ColorButton>
+        <div className="flex flex-col items-center justify-center h-full w-full">
+            <h2 className="text-2xl font-bold mb-4 text-white">Upload your colorant CSV file</h2>
+            <p className="mb-6 text-white/80 text-center max-w-md">
+                To get started, please upload a CSV file containing your colorant data. This will allow you to visualize and select colors for your design.
+            </p>
+            <ColorButton callback={callback}>
+                <FileIcon className="mr-2" /> Open File
+            </ColorButton>
+        </div>
     );
 }
 

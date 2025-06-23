@@ -58,7 +58,45 @@ export default function PatternPage() {
             const imageData = ctx_import.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
 
-            ctx.drawImage(img, 0, 0, preview_cvs.width, preview_cvs.height);
+            // Chatgpt is your friend
+            const niceColors = [
+                '#FF6B6B', // Coral
+                '#6BCB77', // Mint Green
+                '#4D96FF', // Blue
+                '#FFD93D', // Yellow
+                '#FF9F1C', // Orange
+                '#2EC4B6', // Teal
+                '#E71D36', // Red
+                '#011627', // Navy
+                '#FFB5E8', // Pink
+                '#8338EC', // Violet
+                '#3A86FF', // Royal Blue
+                '#FFBE0B', // Gold
+                '#FB5607', // Dark Orange
+                '#FF006E', // Magenta
+                '#9B5DE5', // Purple
+                '#00BBF9', // Sky Blue
+                '#06D6A0', // Green
+                '#EF476F', // Rose
+                '#118AB2', // Tealish
+                '#073B4C', // Dark Blue
+            ];
+
+            for (let x = 0; x < canvas.width; x += 1) {
+                for (let y = 0; y < canvas.height; y += 1) {
+                    const i = 4 * (x + y * canvas.width);
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+
+                    const index = r + g * 256 + b * 256 * 256;
+
+                    console.log(r, g, b);
+
+                    ctx.fillStyle = niceColors[index];
+                    ctx.fillRect(10 * x, 10 * y, 10, 10);
+                }
+            }
 
             const colorSet = new Set<string>();
             for (let i = 0; i < data.length; i += 4) {
@@ -135,13 +173,11 @@ export default function PatternPage() {
                         />
                     </label>
                     {patternUrl && (
-                        <div className="mt-4">
+                        <div className="mt-4 flex flex-col justify-center space-y-2">
                             <canvas ref={preview_canvas}></canvas>
-                            <img
-                                src={patternUrl}
-                                alt="Pattern preview"
-                                className="max-w-xs max-h-64 rounded-lg border border-neutral-700 shadow"
-                            />
+                            <div className="italic font-bold">
+                                Colors are only for previsualization purposes
+                            </div>
                         </div>
                     )}
                     {selectedPattern && (

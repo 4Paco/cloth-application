@@ -17,6 +17,7 @@ import { ColorTranslator } from 'colortranslator';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 
+
 // function Settings() {
 //     return (
 //         <div style={{ width: '200px', background: '#111', padding: '1rem' }}>
@@ -294,7 +295,8 @@ function CIESelect() {
 
                         <Button
                             onClick={() => {
-                                router.push('/preview');
+                                
+                                router.push('/CIE/preview');
                             }}
                         >
                             Use my colors

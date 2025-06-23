@@ -81,7 +81,7 @@ export default function HomePage() {
             An interactive tool for fashion designers concerned with sustainability
           </p>
           <div className="flex gap-4">
-            <Link href="/CIE" className="bg-white text-black px-6 py-3 rounded-xl font-medium hover:bg-neutral-300 transition">
+            <Link href="/pattern" className="bg-white text-black px-6 py-3 rounded-xl font-medium hover:bg-neutral-300 transition">
               Try the tool
             </Link>
             <Link href="#demo" className="border border-white px-6 py-3 rounded-xl font-medium hover:bg-white hover:text-black transition">

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Helper to convert hex to rgb
 function hexToRgb(hex: string) {
@@ -26,6 +26,8 @@ function colorDistanceRGB(rgb1: [number, number, number], rgb2: [number, number,
         Math.pow(rgb1[2] - rgb2[2], 2)
     );
 }
+
+
 
 function createColorMap(
   baseColors: [number, number, number][],
@@ -106,7 +108,31 @@ export default function PatternPreview({
         };
         return () => URL.revokeObjectURL(img.src);
     }, [patternFile, colorants, baseColors]);
-    colormapping = createColorMap(baseColors, colorants);
+    const [colorMapping, setColormapping] = useState<number[]>(() => {
+        // Initialize mapping, for example all assigned initially:
+        return baseColors.map((_, i) => i < colorants.length ? i : -1);
+    });
+    colormapping = [...colorMapping];
+
+    function handleRemove(index: number) {
+        setColormapping(prev => {
+            const newMapping = [...prev];
+            newMapping[index] = -1; // Mark as unassigned
+            colormapping[index] = -1;
+            return newMapping;
+        });
+        }
+    function handleColorChange(index: number, color_index: number) {
+        setColormapping(prev => {
+            const newMapping = [...prev];
+            newMapping[index] = color_index; // Mark as unassigned
+            colormapping[index] = color_index;
+            return newMapping;
+        });
+        }
+
+    const [pickerIndex, setPickerIndex] = useState(null);
+    const inputRef = useRef(null);
     return (
         <section className="p-6 bg-gray-800 text-white rounded-lg shadow-lg">
             <h2 className="text-2xl font-semibold mb-4 text-center">Pattern Preview</h2>
@@ -135,7 +161,7 @@ export default function PatternPreview({
                             <span className="text-xl">→</span>
                             <span
                                 style={{
-                                    background: colorants[colormapping[i]],
+                                    background: colormapping[i] !== -1 ? colorants[colorMapping[i]] : 'transparent',
                                     width: 28,
                                     height: 28,
                                     borderRadius: '50%',
@@ -143,9 +169,42 @@ export default function PatternPreview({
                                     display: 'inline-block',
                                 }}
                             />
-                            <span className="ml-2 text-neutral-400 text-sm">
-                                replaces color {i + 1}
-                            </span>
+                            <button
+                                style={{
+                                    padding: '2px 6px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                }}
+                                onClick={() => handleRemove(i)}
+                                >
+                                ❌ Remove assigned color
+                            </button>
+                            <div className="flex items-center gap-2">
+                            <select
+                                value={colorMapping[i]}
+                                onChange={(e) => handleColorChange(i, parseInt(e.target.value))}
+                                className="bg-gray-700 text-white px-2 py-1 rounded"
+                            >
+                                <option value={-1}>None</option>
+                                {colorants.map((color, idx) => (
+                                    <option key={idx} value={idx}>
+                                        {color}
+                                    </option>
+                                ))}
+                            </select>
+                            {colorMapping[i] !== -1 && (
+                                <div
+                                    style={{
+                                        backgroundColor: colorants[colorMapping[i]],
+                                        width: 20,
+                                        height: 20,
+                                        borderRadius: 4,
+                                        border: '1px solid #555',
+                                    }}
+                                />
+                            )}
+                        </div>
+
                         </div>
                     ))}
                 </div>

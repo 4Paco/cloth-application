@@ -162,6 +162,7 @@ export default function PreviewPage() {
                 patternFile={selectedPattern}
                 colorants={colorants}
                 baseColors={extractedBaseColors}
+                colormapping={designColorants.map((_, i) => i)}
             />
         
           <div className="mt-8 w-full">

@@ -73,7 +73,7 @@ function Spheres({
             </sphereGeometry>
             <meshBasicMaterial
                 toneMapped={false}
-                vertexColorsgit
+                vertexColors
                 transparent={true}
                 opacity={opacity} //selectedColors.includes(e.instanceId) ? 0.4 : 1.0}
             />

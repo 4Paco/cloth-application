@@ -155,7 +155,7 @@ export default function PatternPreview({
                                     border: '2px solid #444',
                                     display: 'inline-block',
                                 }}
-                            />
+                            > {i}</span>
                             <span className="text-xl">→</span>
                             <span
                                 style={{

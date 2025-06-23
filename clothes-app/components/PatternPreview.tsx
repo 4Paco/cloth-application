@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-
+import { useDesign } from '@/components/DesignContextProvider';
 // Helper to convert hex to rgb
 function hexToRgb(hex: string) {
   const res = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -108,14 +108,12 @@ export default function PatternPreview({
         };
         return () => URL.revokeObjectURL(img.src);
     }, [patternFile, colorants, baseColors]);
-    const [colorMapping, setColormapping] = useState<number[]>(() => {
-        // Initialize mapping, for example all assigned initially:
-        return baseColors.map((_, i) => i < colorants.length ? i : -1);
-    });
-    colormapping = [...colorMapping];
+    const {colourantMapping} =  useDesign();
+    const {setColourantMapping} = useDesign();
+    colormapping = [...colourantMapping];
 
     function handleRemove(index: number) {
-        setColormapping(prev => {
+        setColourantMapping(prev => {
             const newMapping = [...prev];
             newMapping[index] = -1; // Mark as unassigned
             colormapping[index] = -1;
@@ -123,7 +121,7 @@ export default function PatternPreview({
         });
         }
     function handleColorChange(index: number, color_index: number) {
-        setColormapping(prev => {
+        setColourantMapping(prev => {
             const newMapping = [...prev];
             newMapping[index] = color_index; // Mark as unassigned
             colormapping[index] = color_index;
@@ -161,7 +159,7 @@ export default function PatternPreview({
                             <span className="text-xl">→</span>
                             <span
                                 style={{
-                                    background: colormapping[i] !== -1 ? colorants[colorMapping[i]] : 'transparent',
+                                    background: colormapping[i] !== -1 ? colorants[colourantMapping[i]] : 'transparent',
                                     width: 28,
                                     height: 28,
                                     borderRadius: '50%',
@@ -181,7 +179,7 @@ export default function PatternPreview({
                             </button>
                             <div className="flex items-center gap-2">
                             <select
-                                value={colorMapping[i]}
+                                value={colourantMapping[i]}
                                 onChange={(e) => handleColorChange(i, parseInt(e.target.value))}
                                 className="bg-gray-700 text-white px-2 py-1 rounded"
                             >
@@ -192,10 +190,10 @@ export default function PatternPreview({
                                     </option>
                                 ))}
                             </select>
-                            {colorMapping[i] !== -1 && (
+                            {colourantMapping[i] !== -1 && (
                                 <div
                                     style={{
-                                        backgroundColor: colorants[colorMapping[i]],
+                                        backgroundColor: colorants[colourantMapping[i]],
                                         width: 20,
                                         height: 20,
                                         borderRadius: 4,

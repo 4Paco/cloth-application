@@ -62,9 +62,38 @@ function ThreeScene({
     maxTimeRef: React.RefObject<number>;
 }) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const { designColorants } = useDesign();
-    const { selectedPattern } = useDesign();
+    const { designColorants, selectedPattern, colourantMapping, setDesignColorants, setColourantMapping } = useDesign();
 
+    // Reset colourantMapping to [0, 1, ...] with the same length as designColorants
+    // But first, reorder designColorants to match the current colourantMapping order
+    useEffect(() => {
+        if (
+            designColorants &&
+            setColourantMapping &&
+            setDesignColorants &&
+            Array.isArray(colourantMapping) &&
+            colourantMapping.length === designColorants.length
+        ) {
+            // Reorder designColorants according to colourantMapping
+            const reordered = colourantMapping.map(idx => designColorants[idx]);
+            // Only update if reordered is different from current designColorants
+            const isDifferent =
+                reordered.length !== designColorants.length ||
+                reordered.some((item, idx) => item !== designColorants[idx]);
+            if (isDifferent) {
+                setDesignColorants(reordered);
+                // Then reset mapping to [0, 1, ...]
+                setColourantMapping(Array.from({ length: reordered.length }, (_, i) => i));
+            }
+        } else if (
+            designColorants &&
+            setColourantMapping &&
+            (!Array.isArray(colourantMapping) || colourantMapping.length !== designColorants.length)
+        ) {
+            setColourantMapping(Array.from({ length: designColorants.length }, (_, i) => i));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [designColorants, colourantMapping, setColourantMapping, setDesignColorants]);
     useEffect(() => {
         async function setupScene() {
             if (!designColorants || designColorants.length === 0) {

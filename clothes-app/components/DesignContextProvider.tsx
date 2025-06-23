@@ -15,6 +15,8 @@ interface DesignContextType {
     setRequiredColorCount: React.Dispatch<React.SetStateAction<number>>;
     designColorants: Colorant[];
     setDesignColorants: React.Dispatch<React.SetStateAction<Colorant[]>>;
+    colourantMapping : number[]; // Mapping of base colors to colorants
+    setColourantMapping: React.Dispatch<React.SetStateAction<number[]>>;
     
 }
 const DesignContext = createContext<DesignContextType | undefined>(undefined);
@@ -58,7 +60,10 @@ export function DesignProvider({ children }: DesignProviderProps) {
     const [selectedDatabase, setSelectedDatabase] = useState<File | null>(null); // File objects can't be stored in localStorage
     const [requiredColorCount, setRequiredColorCount] = useState<number>(2);
     const [designColorants, setDesignColorants] = useState<Colorant[]>([]);
-
+    const [colourantMapping, setColourantMapping] = useState<number[]>(() => {
+            // Initialize mapping, for example all assigned initially:
+            return Array.from({ length: requiredColorCount }, (_, i) => i);
+        });
     return (
         <DesignContext.Provider
             value={{
@@ -72,6 +77,8 @@ export function DesignProvider({ children }: DesignProviderProps) {
                 setRequiredColorCount,
                 designColorants,
                 setDesignColorants,
+                colourantMapping,
+                setColourantMapping,
             }}
         >
             {children}

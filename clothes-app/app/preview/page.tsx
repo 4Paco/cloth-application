@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, Suspense } from 'react';
 import * as THREE from 'three/webgpu';
 import { OBJLoader } from 'three/examples/jsm/Addons.js';
 import { Slider } from '@/components/ui/slider';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useDesign } from '@/components/DesignContextProvider';
 import { ColorTranslator } from 'colortranslator';
-import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { Canvas, invalidate, useLoader } from '@react-three/fiber';
 import { WebGPURendererParameters } from 'three/src/renderers/webgpu/WebGPURenderer.js';
 import Controls from '@/components/3d/Controls';
 import { useHelper, useTexture } from '@react-three/drei';
@@ -26,6 +26,7 @@ import {
     uvec3,
 } from 'three/tsl';
 import { Colorant } from '@/components/CIESphere';
+import { Perf } from 'r3f-perf';
 
 function draw_gradient_line(
     ctx: CanvasRenderingContext2D,
@@ -62,7 +63,7 @@ function draw_gradient_line(
 
 function ThreeScene({ currentTime, maxTime }: { currentTime: number; maxTime: number }) {
     const [uvScale] = useState<THREE.Vector2>(new THREE.Vector2(100, 100));
-    const preview_object = useLoader(OBJLoader, 'tshirt2.obj');
+    const preview_object = useLoader(OBJLoader, 'sphere.obj');
     const textures = useTexture({
         albedo: 'default_cloth/albedo.png',
         normal: 'default_cloth/normal.png',
@@ -75,12 +76,15 @@ function ThreeScene({ currentTime, maxTime }: { currentTime: number; maxTime: nu
 
     const [lookup_resolution] = useState(10);
 
-    const { designColorants } = useDesign();
+    const { designColorants, heatmap } = useDesign();
 
     const uTime = useMemo(() => uniform(0), []);
-    useFrame(() => {
-        uTime.value = currentTime;
-    });
+    useEffect(() => {
+        if (preview_material) {
+            uTime.value = currentTime;
+            invalidate();
+        }
+    }, [currentTime]);
 
     const color_evolution_lookup_canvas = useMemo(() => {
         const colorants: Colorant[] =
@@ -161,6 +165,12 @@ function ThreeScene({ currentTime, maxTime }: { currentTime: number; maxTime: nu
     }, [color_evolution_lookup_canvas]);
 
     useEffect(() => {
+        return () => {
+            color_evolution_lookup_texture.dispose();
+        };
+    }, [color_evolution_lookup_texture]);
+
+    useEffect(() => {
         color_evolution_lookup_texture.needsUpdate = true;
     }, [color_evolution_lookup_texture]);
 
@@ -226,13 +236,15 @@ function ThreeScene({ currentTime, maxTime }: { currentTime: number; maxTime: nu
         textures.pixels.needsUpdate = true;
     }, [textures, uvScale.x, uvScale.y]);
 
-    useMemo(() => {
+    const preview_material = useMemo(() => {
         const preview_material = new THREE.MeshStandardNodeMaterial({
             alphaMap: textures.alpha,
             normalMap: textures.normal,
             bumpMap: textures.height,
             transparent: false,
         });
+
+        console.log("Recreating material");
 
         const uTimeDiv = uniform(maxTime);
 
@@ -241,15 +253,34 @@ function ThreeScene({ currentTime, maxTime }: { currentTime: number; maxTime: nu
         const color_index = uint(
             mul(128, textureLoad(textures.pixels, uvec2(mod(id, 24), div(id, 24))).r)
         );
-        const color = textureLoad(
-            color_evolution_lookup_texture,
-            uvec2(floor(mul(div(uTime, uTimeDiv), sub(lookup_resolution, 1))), color_index)
+        const time = mul(
+            div(mul(texture(heatmap ?? undefined).r, uTime), uTimeDiv),
+            sub(lookup_resolution, 1)
         );
+        const color = textureLoad(color_evolution_lookup_texture, uvec2(floor(time), color_index));
         preview_material.colorNode = mul(
             color,
             texture(textures.albedo),
             texture(textures.ambient_occlusion)
         );
+
+        return preview_material;
+    }, [
+        color_evolution_lookup_texture,
+        heatmap,
+        lookup_resolution,
+        maxTime,
+        textures.albedo,
+        textures.alpha,
+        textures.ambient_occlusion,
+        textures.height,
+        textures.ids,
+        textures.normal,
+        textures.pixels,
+    ]);
+
+    useMemo(() => {
+        console.log("Recreating mesh");
 
         preview_object.traverse(function (child) {
             const child_mesh = child as THREE.Mesh;
@@ -260,20 +291,7 @@ function ThreeScene({ currentTime, maxTime }: { currentTime: number; maxTime: nu
         });
 
         return preview_material;
-    }, [
-        color_evolution_lookup_texture,
-        lookup_resolution,
-        maxTime,
-        preview_object,
-        textures.albedo,
-        textures.alpha,
-        textures.ambient_occlusion,
-        textures.height,
-        textures.ids,
-        textures.normal,
-        textures.pixels,
-        uTime,
-    ]);
+    }, [preview_material, preview_object]);
 
     const directionalLightRef = useRef<THREE.DirectionalLight>(null);
     useHelper(
@@ -283,13 +301,17 @@ function ThreeScene({ currentTime, maxTime }: { currentTime: number; maxTime: nu
         'red'
     );
 
+    const [lightColor] = useState(new THREE.Color(1, 1, 1));
+    const [lightPosition] = useState(new THREE.Vector3(1, 1, 1));
+
     return (
         <>
+            <Perf />
             <Controls />
             <ambientLight color="white" intensity={0.05} />
             <directionalLight
-                color={new THREE.Color(1, 1, 1)}
-                position={new THREE.Vector3(1, 1, 1)}
+                color={lightColor}
+                position={lightPosition}
                 intensity={1}
                 ref={directionalLightRef}
             />
@@ -351,7 +373,9 @@ export default function Home() {
                     }}
                     camera={{ near: 0.001, far: 1000, fov: 75 }}
                 >
-                    <ThreeScene currentTime={currentTime} maxTime={maxTime} />
+                    <Suspense fallback={null}>
+                        <ThreeScene currentTime={currentTime} maxTime={maxTime} />
+                    </Suspense>
                 </Canvas>
             </div>
             <ResizablePanelGroup

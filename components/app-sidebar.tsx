@@ -27,13 +27,10 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { authClient } from '@/lib/auth-client';
+import { Skeleton } from './ui/skeleton';
 
 const data = {
-    user: {
-        name: 'Panos Mavros',
-        email: 'panos.mavros@telecom-paris.fr',
-        avatar: '/avatars/shadcn.jpg',
-    },
     navMain: [
         {
             title: 'Playground',
@@ -153,6 +150,15 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+    const session = authClient.useSession();
+
+    const hasData = session.data !== undefined && session.data !== null;
+    const user = {
+        name: session.data?.user.name ?? '',
+        email: session.data?.user.email ?? '',
+        avatar: session.data?.user.image ?? '/avatars/shadcn.jpg',
+    };
+
     return (
         <Sidebar variant="inset" {...props}>
             <SidebarHeader>
@@ -178,7 +184,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <NavSecondary items={data.navSecondary} className="mt-auto" />
             </SidebarContent>
             <SidebarFooter>
-                <NavUser user={data.user} />
+                {!hasData && <Skeleton className="w-full h-12" />}
+                {hasData && <NavUser user={user} />}
             </SidebarFooter>
         </Sidebar>
     );

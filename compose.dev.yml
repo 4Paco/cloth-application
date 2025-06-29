@@ -11,14 +11,16 @@ services:
 
         env_file:
             - .env
-        volumes:
-            - ./app:/app/app
-            - ./public:/app/public
-            - ./components:/app/components
-            - ./hooks:/app/hooks
-            - ./lib:/app/lib
-            - ./prisma:/app/prisma
-            - ./generated:/app/generated
+        # volumes:
+            # - .:/app
+            # - ./public:/app/public
+            # - ./components:/app/components
+            # - ./actions:/app/actions
+            # - ./context:/app/context
+            # - ./hooks:/app/hooks
+            # - ./lib:/app/lib
+            # - ./prisma:/app/prisma
+            # - ./generated:/app/generated
         restart: always
         ports:
             - 3000:3000
@@ -26,7 +28,13 @@ services:
             - app-network
         depends_on:
             - postgres
-
+        develop:
+            watch:
+                - action: sync
+                  path: .
+                  target: /app
+                  ignore:
+                    - node_modules/
     studio:
         image: oven/bun:1
         container_name: cloth-application_studio

@@ -303,7 +303,9 @@ function CIESelect() {
                         )}
 
                         <Button
+                            disabled={designColorants.length < requiredColorCount}
                             onClick={() => {
+                                //if (designColorants.length === requiredColorCount)
                                 router.push('/CIE/preview');
                             }}
                         >

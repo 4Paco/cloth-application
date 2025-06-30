@@ -1,20 +1,20 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { ColorEntry, parseCSVText } from '@/components/color_handling';
-import { useEffect, useState } from 'react';
 import { useDesign } from '@/components/DesignContextProvider';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 
 const CIESphere = dynamic(() => import('@/components/CIESphere'), {
     ssr: false,
 });
 
 import { ColorButton } from '@/components/ExcelButton';
-import { FileIcon } from 'lucide-react';
-import { SettingSlider, SettingCheckbox } from '@/components/SettingSlider';
-import { ColorTranslator } from 'colortranslator';
+import { SettingCheckbox, SettingSlider } from '@/components/SettingSlider';
 import { Button } from '@/components/ui/button';
+import { ColorTranslator } from 'colortranslator';
+import { FileIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 // function Settings() {
@@ -155,6 +155,7 @@ function CIESelect() {
         useDesign();
     const [tolerance, setTolerance] = useState(30);
     const [seeAllColorants, setSeeAllColorants] = useState(false);
+    const [selectEndingPoint, setSelectEndingPoint] = useState(false);
 
     const [db, setDb] = useState<ColorEntry[]>([]);
 
@@ -196,6 +197,7 @@ function CIESelect() {
                     tolerance={tolerance}
                     maxColors={requiredColorCount}
                     seeAllColorants={seeAllColorants}
+                    selectEndingPoint={selectEndingPoint}
                 />
             ) : (
                 <div>Loading...</div>
@@ -233,6 +235,10 @@ function CIESelect() {
 
                         <SettingCheckbox value={seeAllColorants} setValue={setSeeAllColorants}>
                             See all colorants
+                        </SettingCheckbox>
+
+                        <SettingCheckbox value={selectEndingPoint} setValue={setSelectEndingPoint}>
+                            Select colorants by ending point (default starting point)
                         </SettingCheckbox>
 
                         {designColorants.length > 0 && (
@@ -301,7 +307,7 @@ function CIESelect() {
                                 router.push('/CIE/preview');
                             }}
                         >
-                            Use my colors
+                            Use my selected colorants
                         </Button>
                     </div>
                 </ResizablePanel>

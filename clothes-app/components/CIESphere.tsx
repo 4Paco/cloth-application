@@ -13,6 +13,7 @@ interface CIESphereProps {
     colorantsDatabase: ColorEntry[];
     tolerance: number;
     seeAllColorants: boolean;
+    selectEndingPoint: boolean;
     maxColors: number;
 }
 
@@ -89,6 +90,7 @@ const CIESphere = ({
     tolerance,
     seeAllColorants,
     maxColors,
+    selectEndingPoint,
 }: CIESphereProps) => {
     const { designColorants, setDesignColorants } = useDesign();
     const [selectedColors, setSelectedColors] = useState<number[]>([]);
@@ -118,20 +120,44 @@ const CIESphere = ({
         const getColorantsToPlot = () => {
             if (!colorantsDatabase) return [];
             let colorants_tolerated: ColorEntry[] = [];
+
             if (seeAllColorants) {
                 colorants_tolerated = colorantsDatabase.filter((colorant) => colorant.hours === 0);
             } else {
-                // if (!selectedPosition) return [];
-                colorants_tolerated = colorantsDatabase.filter((colorant) => {
-                    if (colorant.hours !== 0) return false;
-                    const position = new THREE.Vector3(colorant.L, colorant.b, colorant.L - 50);
-                    const distance = Math.min(
-                        ...selectedColors.map((id) =>
-                            new THREE.Vector3(...position).distanceTo(points[id].position)
-                        )
-                    );
-                    return distance <= tolerance;
-                });
+                if (selectEndingPoint) {
+                    let oldests: number[] = [];
+                    colorantsDatabase.map((col, id) => {
+                        //console.log(col.id in oldests);
+                        if (!(col.id in oldests)) oldests[col.id] = col.hours;
+                        else {
+                            if (col.hours > oldests[col.id]) oldests[col.id] = col.hours;
+                        }
+                    });
+                    console.log(oldests);
+
+                    colorants_tolerated = colorantsDatabase.filter((colorant) => {
+                        if (colorant.hours !== oldests[colorant.id]) return false;
+                        const position = new THREE.Vector3(colorant.L, colorant.b, colorant.L - 50);
+                        const distance = Math.min(
+                            ...selectedColors.map((id) =>
+                                new THREE.Vector3(...position).distanceTo(points[id].position)
+                            )
+                        );
+                        return distance <= tolerance;
+                    });
+                } else {
+                    // if (!selectedPosition) return [];
+                    colorants_tolerated = colorantsDatabase.filter((colorant) => {
+                        if (colorant.hours !== 0) return false;
+                        const position = new THREE.Vector3(colorant.L, colorant.b, colorant.L - 50);
+                        const distance = Math.min(
+                            ...selectedColors.map((id) =>
+                                new THREE.Vector3(...position).distanceTo(points[id].position)
+                            )
+                        );
+                        return distance <= tolerance;
+                    });
+                }
             }
 
             const to_plot: Colorant[] = [];

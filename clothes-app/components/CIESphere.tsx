@@ -15,6 +15,8 @@ interface CIESphereProps {
     seeAllColorants: boolean;
     selectEndingPoint: boolean;
     maxColors: number;
+    labSelected: { L: number; a: number; b: number };
+    setLabSelected: React.Dispatch<React.SetStateAction<{ L: number; a: number; b: number }>>;
 }
 
 const tempObject = new THREE.Object3D();
@@ -91,6 +93,8 @@ const CIESphere = ({
     seeAllColorants,
     maxColors,
     selectEndingPoint,
+    labSelected,
+    setLabSelected,
 }: CIESphereProps) => {
     const { designColorants, setDesignColorants } = useDesign();
     const [selectedColors, setSelectedColors] = useState<number[]>([]);
@@ -98,7 +102,7 @@ const CIESphere = ({
 
     const points = useMemo(() => {
         const spheres: ColoredPoint[] = [];
-        const step = 8;
+        const step = 20;
 
         for (let L = 0; L <= 100; L += step) {
             for (let a = -125; a <= 125; a += step) {
@@ -127,17 +131,15 @@ const CIESphere = ({
                 if (selectEndingPoint) {
                     let oldests: number[] = [];
                     colorantsDatabase.map((col, id) => {
-                        //console.log(col.id in oldests);
                         if (!(col.id in oldests)) oldests[col.id] = col.hours;
                         else {
                             if (col.hours > oldests[col.id]) oldests[col.id] = col.hours;
                         }
                     });
-                    console.log(oldests);
 
                     colorants_tolerated = colorantsDatabase.filter((colorant) => {
                         if (colorant.hours !== oldests[colorant.id]) return false;
-                        const position = new THREE.Vector3(colorant.L, colorant.b, colorant.L - 50);
+                        const position = new THREE.Vector3(colorant.a, colorant.b, colorant.L - 50);
                         const distance = Math.min(
                             ...selectedColors.map((id) =>
                                 new THREE.Vector3(...position).distanceTo(points[id].position)
@@ -149,7 +151,7 @@ const CIESphere = ({
                     // if (!selectedPosition) return [];
                     colorants_tolerated = colorantsDatabase.filter((colorant) => {
                         if (colorant.hours !== 0) return false;
-                        const position = new THREE.Vector3(colorant.L, colorant.b, colorant.L - 50);
+                        const position = new THREE.Vector3(colorant.a, colorant.b, colorant.L - 50);
                         const distance = Math.min(
                             ...selectedColors.map((id) =>
                                 new THREE.Vector3(...position).distanceTo(points[id].position)
@@ -188,29 +190,39 @@ const CIESphere = ({
         };
 
         setColorantsFamiliesToPlot(getColorantsToPlot());
-    }, [colorantsDatabase, points, seeAllColorants, selectedColors, tolerance]);
+    }, [colorantsDatabase, points, seeAllColorants, selectedColors, tolerance, selectEndingPoint]);
 
-    // const getPointsWithinTolerance = () => {
-    //     if (!selectedPosition) return [];
-    //     return points.filter((point) => {
-    //         const distance = new THREE.Vector3(...point.position).distanceTo(
-    //             new THREE.Vector3(...selectedPosition)
-    //         );
-    //         return distance <= tolerance;
-    //     });
-    // };
+    useEffect(() => {
+        if (!labSelected) return;
 
-    // const pointsWithinTolerance = getPointsWithinTolerance();
+        //let colorChoosed = new ColorTranslator(labSelected) ;
+        const dreamPosition = new THREE.Vector3(labSelected.a, labSelected.b, labSelected.L - 50);
+
+        const closestPointIndex = points.reduce((closestIndex, point, index) => {
+            const distanceToLabSelected = dreamPosition.distanceTo(point.position);
+            const closestDistance = dreamPosition.distanceTo(points[closestIndex].position);
+
+            return distanceToLabSelected < closestDistance ? index : closestIndex;
+        }, 0);
+
+        setSelectedColors([closestPointIndex]);
+    }, [labSelected]);
 
     const clickCallback = (instanceId: number) => {
-        setSelectedColors((prev) => {
-            if (prev.includes(instanceId)) {
-                return prev.filter((id) => id !== instanceId);
-            } else {
-                //return [...prev, instanceId];
-                return [instanceId];
-            }
+        setLabSelected({
+            L: points[instanceId].position.z + 50,
+            a: points[instanceId].position.x,
+            b: points[instanceId].position.y,
         });
+
+        //setSelectedColors((prev) => {
+        //    if (prev.includes(instanceId)) {
+        //        return prev.filter((id) => id !== instanceId);
+        //    } else {
+        //        //return [...prev, instanceId];
+        //        return [instanceId];
+        //    }
+        //});
     };
 
     return (

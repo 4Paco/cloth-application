@@ -1,5 +1,9 @@
 'use client';
 
+//TODO :
+// - Filter by aging
+// - Display tolerance selection as a DeltaE
+
 import { ColorEntry, parseCSVText } from '@/components/color_handling';
 import { useDesign } from '@/components/DesignContextProvider';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -11,7 +15,7 @@ const CIESphere = dynamic(() => import('@/components/CIESphere'), {
 });
 
 import { ColorButton } from '@/components/ExcelButton';
-import { SettingCheckbox, SettingSlider } from '@/components/SettingSlider';
+import { SettingCheckbox, SettingSlider, ColorSettingForm } from '@/components/SettingSlider';
 import { Button } from '@/components/ui/button';
 import { ColorTranslator } from 'colortranslator';
 import { FileIcon } from 'lucide-react';
@@ -150,12 +154,29 @@ function PlaceholderLoadFile({ setFile }: { setFile: (file: File) => void }) {
     );
 }
 
+function Separator() {
+    return <hr className="my-4 border-t border-gray-300" />;
+}
+
+function SelectionDisplay({ LabColor }: { LabColor: any }) {
+    let color = new ColorTranslator(LabColor);
+    return (
+        <>
+            <br></br>
+            <div
+                style={{ background: `rgb(${color.R}, ${color.G}, ${color.B})`, height: '2rem' }}
+            ></div>
+        </>
+    );
+}
+
 function CIESelect() {
     const { requiredColorCount, selectedDatabase, designColorants, setDesignColorants } =
         useDesign();
     const [tolerance, setTolerance] = useState(30);
     const [seeAllColorants, setSeeAllColorants] = useState(false);
     const [selectEndingPoint, setSelectEndingPoint] = useState(false);
+    const [labSelected, setLabSelected] = useState({ L: 0, a: 0, b: 0 });
 
     const [db, setDb] = useState<ColorEntry[]>([]);
 
@@ -198,6 +219,8 @@ function CIESelect() {
                     maxColors={requiredColorCount}
                     seeAllColorants={seeAllColorants}
                     selectEndingPoint={selectEndingPoint}
+                    labSelected={labSelected}
+                    setLabSelected={setLabSelected}
                 />
             ) : (
                 <div>Loading...</div>
@@ -223,6 +246,10 @@ function CIESelect() {
                 >
                     {/* <div className="fixed rounded-xl right-2 top-2 bottom-2 px-8 py-4 bg-neutral-200/80 backdrop-blur flex flex-col items-center z-10"> */}
                     <div className="flex flex-col w-full">
+                        <SettingCheckbox value={seeAllColorants} setValue={setSeeAllColorants}>
+                            See all colorants
+                        </SettingCheckbox>
+                        <Separator />
                         <SettingSlider
                             value={tolerance}
                             setValue={setTolerance}
@@ -233,14 +260,15 @@ function CIESelect() {
                             Tolerance
                         </SettingSlider>
 
-                        <SettingCheckbox value={seeAllColorants} setValue={setSeeAllColorants}>
-                            See all colorants
-                        </SettingCheckbox>
-
                         <SettingCheckbox value={selectEndingPoint} setValue={setSelectEndingPoint}>
                             Select colorants by ending point (default starting point)
                         </SettingCheckbox>
-
+                        <Separator />
+                        <div>Selected color : </div>
+                        <ColorSettingForm value={labSelected} setValue={setLabSelected} />
+                        <SelectionDisplay LabColor={labSelected} />
+                        {/*<div>{JSON.stringify(labSelected)}</div>*/}
+                        <Separator />
                         {designColorants.length > 0 && (
                             <div className="flex flex-col place-content-start pr-2">
                                 <h4 className="self-center">
@@ -305,7 +333,6 @@ function CIESelect() {
                         <Button
                             disabled={designColorants.length < requiredColorCount}
                             onClick={() => {
-                                //if (designColorants.length === requiredColorCount)
                                 router.push('/CIE/preview');
                             }}
                         >

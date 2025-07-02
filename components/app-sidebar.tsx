@@ -1,21 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import {
-    BookOpen,
-    Bot,
-    Command,
-    Frame,
-    LifeBuoy,
-    Map,
-    PieChart,
-    Send,
-    Settings2,
-    SquareTerminal,
-} from 'lucide-react';
+import { Command, LifeBuoy, PieChart, Send, Wrench, Cog, LayoutDashboard } from 'lucide-react';
 
-import { NavMain } from '@/components/nav-main';
-import { NavProjects } from '@/components/nav-projects';
+import { NavSteps } from '@/components/nav-steps';
 import { NavSecondary } from '@/components/nav-secondary';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -29,95 +17,9 @@ import {
 } from '@/components/ui/sidebar';
 import { authClient } from '@/lib/auth-client';
 import { Skeleton } from './ui/skeleton';
+import { useProject } from '@/context/ProjectContext';
 
 const data = {
-    navMain: [
-        {
-            title: 'Playground',
-            url: '#',
-            icon: SquareTerminal,
-            isActive: true,
-            items: [
-                {
-                    title: 'History',
-                    url: '#',
-                },
-                {
-                    title: 'Starred',
-                    url: '#',
-                },
-                {
-                    title: 'Settings',
-                    url: '#',
-                },
-            ],
-        },
-        {
-            title: 'Models',
-            url: '#',
-            icon: Bot,
-            items: [
-                {
-                    title: 'Genesis',
-                    url: '#',
-                },
-                {
-                    title: 'Explorer',
-                    url: '#',
-                },
-                {
-                    title: 'Quantum',
-                    url: '#',
-                },
-            ],
-        },
-        {
-            title: 'Documentation',
-            url: '#',
-            icon: BookOpen,
-            items: [
-                {
-                    title: 'Introduction',
-                    url: '#',
-                },
-                {
-                    title: 'Get Started',
-                    url: '#',
-                },
-                {
-                    title: 'Tutorials',
-                    url: '#',
-                },
-                {
-                    title: 'Changelog',
-                    url: '#',
-                },
-            ],
-        },
-        {
-            title: 'Settings',
-            url: '#',
-            icon: Settings2,
-            items: [
-                {
-                    title: 'General',
-                    url: '#',
-                },
-                {
-                    title: 'Team',
-                    url: '#',
-                },
-                {
-                    title: 'Billing',
-                    url: '#',
-                },
-                {
-                    title: 'Limits',
-                    url: '#',
-                },
-            ],
-        },
-    ],
     navSecondary: [
         {
             title: 'Support',
@@ -130,24 +32,63 @@ const data = {
             icon: Send,
         },
     ],
-    projects: [
+    steps: [
         {
-            name: 'Design Engineering',
-            url: '#',
-            icon: Frame,
+            name: 'Dashboard',
+            url: '',
+            icon: LayoutDashboard,
         },
         {
-            name: 'Sales & Marketing',
-            url: '#',
+            name: 'Project configuration',
+            url: '/configuration',
+            icon: Wrench,
+        },
+        {
+            name: 'Pattern',
+            url: '/pattern',
             icon: PieChart,
         },
         {
-            name: 'Travel',
-            url: '#',
-            icon: Map,
+            name: 'Preview',
+            url: '/preview',
+            icon: Cog,
         },
     ],
 };
+
+function ProjectsHeader() {
+    const project = useProject();
+
+    return (
+        <SidebarHeader>
+            <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton size="lg" asChild>
+                        {project ? (
+                            <a href="/projects">
+                                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                                    <Command className="size-4" />
+                                </div>
+                                <div className="grid flex-1 text-left text-sm leading-tight">
+                                    <span className="truncate font-medium">{project.name}</span>
+                                    <span className="truncate text-xs">Personal</span>
+                                </div>
+                            </a>
+                        ) : (
+                            <a href="/projects">
+                                <Skeleton className="flex aspect-square size-8 items-center justify-center rounded-lg" />
+                                <div className="grid flex-1 text-left text-sm leading-tight">
+                                    <Skeleton className="h-4 mb-1" />
+                                    <Skeleton className="h-4 w-1/2" />
+                                </div>
+                            </a>
+                        )}
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        </SidebarHeader>
+    );
+}
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const session = authClient.useSession();
@@ -161,26 +102,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     return (
         <Sidebar variant="inset" {...props}>
-            <SidebarHeader>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <a href="#">
-                                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                                    <Command className="size-4" />
-                                </div>
-                                <div className="grid flex-1 text-left text-sm leading-tight">
-                                    <span className="truncate font-medium">Acme Inc</span>
-                                    <span className="truncate text-xs">Enterprise</span>
-                                </div>
-                            </a>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarHeader>
+            <ProjectsHeader />
             <SidebarContent>
-                <NavMain items={data.navMain} />
-                <NavProjects projects={data.projects} />
+                <NavSteps steps={data.steps} />
                 <NavSecondary items={data.navSecondary} className="mt-auto" />
             </SidebarContent>
             <SidebarFooter>

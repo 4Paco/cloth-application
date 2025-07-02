@@ -1,6 +1,6 @@
 'use client';
 
-import { BadgeCheck, Bell, ChevronsUpDown, CreditCard, LogOut, Sparkles } from 'lucide-react';
+import { ChevronsUpDown, LogOut, Wrench } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -19,6 +19,8 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 import { authClient } from '@/lib/auth-client';
+import UserSettings from './dialogs/user-settings';
+import { useState } from 'react';
 
 export function NavUser({
     user,
@@ -29,6 +31,7 @@ export function NavUser({
         avatar: string;
     };
 }) {
+    const [open, setOpen] = useState(false);
     const { isMobile } = useSidebar();
     const signOut = authClient.signOut;
 
@@ -39,7 +42,7 @@ export function NavUser({
     return (
         <SidebarMenu>
             <SidebarMenuItem>
-                <DropdownMenu>
+                <DropdownMenu open={open} onOpenChange={setOpen}>
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                             size="lg"
@@ -76,25 +79,16 @@ export function NavUser({
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <Sparkles />
-                                Upgrade to Pro
-                            </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <BadgeCheck />
-                                Account
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <CreditCard />
-                                Billing
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Bell />
-                                Notifications
-                            </DropdownMenuItem>
+                            <UserSettings onFinish={() => setOpen(false)}>
+                                <DropdownMenuItem
+                                    onSelect={(e) => {
+                                        e.preventDefault();
+                                    }}
+                                >
+                                    <Wrench />
+                                    Settings
+                                </DropdownMenuItem>
+                            </UserSettings>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={logOut}>

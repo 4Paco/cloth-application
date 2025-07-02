@@ -18,6 +18,7 @@ model User {
     accounts      Account[]
     sessions      Session[]
     Project       Project[]
+    Settings      Settings?
 
     @@map("user")
 }
@@ -67,8 +68,16 @@ model Verification {
 }
 
 model Project {
-    id      String @id @default(cuid())
-    name    String
-    owner   User   @relation(fields: [ownerId], references: [id])
-    ownerId String
+    id        String @id @default(cuid())
+    name      String
+    owner     User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+    ownerId   String
+    thumbnail String @default("/public/default_thumbnail.png")
+}
+
+model Settings {
+    id     String @id @default(cuid())
+    lang   String @default("en")
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId String @unique
 }

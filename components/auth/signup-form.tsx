@@ -9,6 +9,8 @@ import Image from 'next/image';
 import { useState } from 'react';
 import pigments from '@/public/pigments.jpg';
 import { authClient } from '@/lib/auth-client';
+import { createUserDefaultSettings } from '@/actions/user-settings';
+import { useRouter } from 'next/navigation';
 
 export function SignupForm({ className, ...props }: React.ComponentProps<'div'>) {
     const [email, setEmail] = useState('');
@@ -17,7 +19,9 @@ export function SignupForm({ className, ...props }: React.ComponentProps<'div'>)
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
 
-    function handleSignup(e: React.FormEvent<HTMLFormElement>) {
+    const router = useRouter();
+
+    async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
 
         if (password !== confirmPassword) {
@@ -28,13 +32,15 @@ export function SignupForm({ className, ...props }: React.ComponentProps<'div'>)
         setError('');
         authClient.signUp.email(
             {
-                email, // user email address
-                password, // user password -> min 8 characters by default
-                name, // user display name
+                email,
+                password,
+                name,
             },
             {
                 onSuccess: (ctx) => {
-                    console.log('success', ctx.data);
+                    console.log('User successfully created!', ctx);
+                    createUserDefaultSettings(ctx.data.user.id);
+                    router.push('/projects');
                 },
                 onError: (ctx) => {
                     setError(ctx.error.message);

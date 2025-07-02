@@ -11,15 +11,15 @@ services:
 
         env_file:
             - .env
-        # volumes:
+        volumes:
             # - .:/app
-            # - ./public:/app/public
+            - ./public:/app/public
             # - ./components:/app/components
             # - ./actions:/app/actions
             # - ./context:/app/context
             # - ./hooks:/app/hooks
             # - ./lib:/app/lib
-            # - ./prisma:/app/prisma
+            - ./prisma:/app/prisma
             # - ./generated:/app/generated
         restart: always
         ports:
@@ -34,7 +34,9 @@ services:
                   path: .
                   target: /app
                   ignore:
-                    - node_modules/
+                      - node_modules/
+                      - prisma
+                      - public
     studio:
         image: oven/bun:1
         container_name: cloth-application_studio

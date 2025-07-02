@@ -1,5 +1,9 @@
 {
     "HomePage": {
         "title": "Hello world!"
+    },
+    "Projects": {
+        "headline": "Your projects",
+        "edited": "Edited"
     }
 }

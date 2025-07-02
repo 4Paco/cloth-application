@@ -3,38 +3,113 @@
 import { Project } from '@prisma/client';
 import NewProjectDialog from '@/components/dialogs/new-project-dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Plus } from 'lucide-react';
+import { Card, CardFooter } from '@/components/ui/card';
+import { Plus, Star, Trash } from 'lucide-react';
 import { useState, useTransition } from 'react';
-import { createProject } from '@/actions/projects';
+import { createProject, deleteProject, setFavorite } from '@/actions/projects';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
+import { fr, enGB } from 'date-fns/locale';
+import { useLocale, useTranslations } from 'next-intl';
 
-function ProjectCard({ project }: { project: Project }) {
+function ProjectCardStar({
+    filled,
+    onClick,
+    disabled,
+}: {
+    filled: boolean;
+    onClick: () => void;
+    disabled: boolean;
+}) {
+    return (
+        <Button variant="ghost" className="cursor-pointer" onClick={onClick} disabled={disabled}>
+            <Star className={cn(filled && 'fill-yellow-300')} />
+        </Button>
+    );
+}
+
+function ProjectCardDelete({ onClick }: { onClick: () => void }) {
+    return (
+        <Button variant="ghost" className="cursor-pointer" onClick={onClick}>
+            <Trash className="" />
+        </Button>
+    );
+}
+
+function ProjectCard({
+    initialProject,
+    handleRemove,
+}: {
+    initialProject: Project;
+    handleRemove: (projectId: string) => void;
+}) {
     const router = useRouter();
     const handleClick = function () {
-        router.push('/project/' + project.id);
+        router.push('/project/' + initialProject.id);
     };
 
+    const [project, setProject] = useState(initialProject);
+    const [isPending, startTransition] = useTransition();
+
+    const toggleFavorite = () => {
+        startTransition(async () => {
+            await setFavorite(project.id, !project.favorite);
+            setProject((prev) => {
+                return {
+                    ...prev,
+                    favorite: !prev.favorite,
+                };
+            });
+        });
+    };
+
+    const onClickRemove = () => {
+        handleRemove(project.id);
+    };
+
+    const locale = useLocale();
+
+    const t = useTranslations('Projects');
+
+    const lastEdited = formatDistanceToNow(new Date(project.lastOpenDate), {
+        addSuffix: true,
+        locale: locale == 'fr' ? fr : enGB,
+    });
+
     return (
-        <Button
-            variant="ghost"
-            asChild
-            className="aspect-square overflow-hidden cursor-pointer rounded-xl"
-            onClick={handleClick}
-        >
-            <Card className="w-full h-full p-0 pb-4 gap-4 items-stretch">
-                <CardContent className="px-0 flex-1 relative">
-                    <Image src={project.thumbnail} fill className="h-auto" alt="thumbnail" />
-                </CardContent>
-                <CardFooter className="px-4">
-                    <div className="flex flex-col">
-                        <div className="font-bold">{project.name}</div>
-                        <div className="text-foreground/50">Edited 3 days ago</div>
+        <Card className="relative aspect-square w-full h-full overflow-hidden rounded-xl shadow-lg">
+            <Button
+                variant="ghost"
+                asChild
+                className="overflow-hidden cursor-pointer rounded-xl object-cover z-0 p-0"
+                onClick={handleClick}
+            >
+                <Image src={project.thumbnail} fill alt="Project thumbnail" />
+            </Button>
+
+            {/* Dark overlay */}
+            <div className="absolute inset-0 z-10 bg-gradient-to-t from-black to-transparent pointer-events-none" />
+
+            <div className="absolute top-2 right-2 z-20 flex -gap-2">
+                <ProjectCardStar
+                    filled={project.favorite}
+                    onClick={toggleFavorite}
+                    disabled={isPending}
+                />
+                <ProjectCardDelete onClick={onClickRemove} />
+            </div>
+
+            <CardFooter className="absolute bottom-0 left-0 right-0 z-20 p-4 text-white">
+                <div>
+                    <div className="font-bold text-lg">{project.name}</div>
+                    <div className="text-xs opacity-75">
+                        {t('edited')} {lastEdited}
                     </div>
-                </CardFooter>
-            </Card>
-        </Button>
+                </div>
+            </CardFooter>
+        </Card>
     );
 }
 
@@ -74,10 +149,17 @@ export function ProjectsList({
         });
     };
 
+    const handleRemove = (projectId: string) => {
+        startTransition(async () => {
+            await deleteProject(projectId);
+            setProjects((prev) => prev.filter((p) => p.id != projectId));
+        });
+    };
+
     return (
-        <div className="grid grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {projects.map((project, i) => (
-                <ProjectCard key={i} project={project} />
+                <ProjectCard key={i} initialProject={project} handleRemove={handleRemove} />
             ))}
             <NewProjectCard handleAdd={handleAdd} isPending={isPending} />
         </div>

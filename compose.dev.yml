@@ -12,6 +12,7 @@ services:
         env_file:
             - .env
         volumes:
+            - bun-cache:/root/.bun
             # - .:/app
             - ./public:/app/public
             # - ./components:/app/components
@@ -71,3 +72,4 @@ networks:
 
 volumes:
     postgres_data:
+    bun-cache:

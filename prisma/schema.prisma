@@ -68,11 +68,14 @@ model Verification {
 }
 
 model Project {
-    id        String @id @default(cuid())
-    name      String
-    owner     User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-    ownerId   String
-    thumbnail String @default("/public/default_thumbnail.png")
+    id           String   @id @default(cuid())
+    name         String
+    owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+    ownerId      String
+    thumbnail    String   @default("/default_thumbnail.png")
+    deleted      Boolean  @default(false)
+    favorite     Boolean  @default(false)
+    lastOpenDate DateTime @default(now())
 }
 
 model Settings {

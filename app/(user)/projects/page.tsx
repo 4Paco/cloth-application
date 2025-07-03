@@ -15,8 +15,8 @@ export default async function Page() {
 
     return (
         <div className="h-dvh flex place-items-center justify-center">
-            <div className="flex flex-col w-2/3 space-y-4">
-                <h1 className=" font-bold text-3xl">{t("headline")}</h1>
+            <div className="flex flex-col w-2/3 space-y-6">
+                <h1 className=" font-bold text-3xl">{t('headline')}</h1>
                 {session?.user && (
                     <ProjectsList userId={session.user.id} initialProjects={projects} />
                 )}

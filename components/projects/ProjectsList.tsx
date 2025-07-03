@@ -5,14 +5,15 @@ import NewProjectDialog from '@/components/dialogs/new-project-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardFooter } from '@/components/ui/card';
 import { Plus, Star, Trash } from 'lucide-react';
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { createProject, deleteProject, setFavorite } from '@/actions/projects';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { formatDistanceToNow } from 'date-fns';
+import { differenceInCalendarDays, formatDistanceToNow } from 'date-fns';
 import { fr, enGB } from 'date-fns/locale';
 import { useLocale, useTranslations } from 'next-intl';
+import { Badge } from '@/components/ui/badge';
 
 function ProjectCardStar({
     filled,
@@ -92,7 +93,7 @@ function ProjectCard({
             {/* Dark overlay */}
             <div className="absolute inset-0 z-10 bg-gradient-to-t from-black to-transparent pointer-events-none" />
 
-            <div className="absolute top-2 right-2 z-20 flex -gap-2">
+            <div className="absolute top-2 right-2 z-20 flex -gap-2 pointer-events-none">
                 <ProjectCardStar
                     filled={project.favorite}
                     onClick={toggleFavorite}
@@ -101,7 +102,7 @@ function ProjectCard({
                 <ProjectCardDelete onClick={onClickRemove} />
             </div>
 
-            <CardFooter className="absolute bottom-0 left-0 right-0 z-20 p-4 text-white">
+            <CardFooter className="absolute bottom-0 left-0 right-0 z-20 p-4 text-white pointer-events-none">
                 <div>
                     <div className="font-bold text-lg">{project.name}</div>
                     <div className="text-xs opacity-75">
@@ -132,6 +133,33 @@ function NewProjectCard({
         </NewProjectDialog>
     );
 }
+
+type ProjectFilter = {
+    id: string;
+    name: string;
+    active: boolean;
+    func: (project: Project) => boolean;
+};
+
+const filterDefinitions: Record<string, ProjectFilter> = {
+    favorites: {
+        id: 'favorites',
+        name: 'favorites',
+        active: false,
+        func: (project: Project) => {
+            return project.favorite;
+        },
+    },
+    recents: {
+        id: 'recents',
+        name: 'recents',
+        active: false,
+        func: (project: Project) => {
+            return differenceInCalendarDays(new Date(), project.lastOpenDate) < 8;
+        },
+    },
+};
+
 export function ProjectsList({
     userId,
     initialProjects,
@@ -141,6 +169,8 @@ export function ProjectsList({
 }) {
     const [projects, setProjects] = useState(initialProjects);
     const [isPending, startTransition] = useTransition();
+
+    const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
     const handleAdd = (projectName: string) => {
         startTransition(async () => {
@@ -156,12 +186,42 @@ export function ProjectsList({
         });
     };
 
+    const filteredProjects = useMemo(() => {
+        return projects.filter((project) =>
+            activeFilters.map((id) => filterDefinitions[id].func).every((fn) => fn(project))
+        );
+    }, [activeFilters, projects]);
+
+    const toggleFilter = (filterId: string) => {
+        setActiveFilters((prev) =>
+            prev.includes(filterId) ? prev.filter((id) => id !== filterId) : [...prev, filterId]
+        );
+    };
+
     return (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {projects.map((project, i) => (
-                <ProjectCard key={i} initialProject={project} handleRemove={handleRemove} />
-            ))}
-            <NewProjectCard handleAdd={handleAdd} isPending={isPending} />
+        <div className="flex flex-col space-y-2">
+            <div className="flex flex-row space-x-2">
+                {Object.values(filterDefinitions).map((filter) => (
+                    <Badge
+                        key={filter.id}
+                        variant={activeFilters.includes(filter.id) ? 'default' : 'secondary'}
+                        className="select-none cursor-pointer"
+                        onClick={() => toggleFilter(filter.id)}
+                    >
+                        {filter.name}
+                    </Badge>
+                ))}{' '}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {filteredProjects.map((project) => (
+                    <ProjectCard
+                        key={project.id}
+                        initialProject={project}
+                        handleRemove={handleRemove}
+                    />
+                ))}
+                <NewProjectCard handleAdd={handleAdd} isPending={isPending} />
+            </div>
         </div>
     );
 }

@@ -89,57 +89,143 @@ function ColoredBitmapCanvas({
         />
     );
 }
+function DrawdownCanvas({
+    bitmap,
+    onPointerDown,
+    rowsColors,
+    threadsColors,
+    pixelSize,
+    className,
+}: {
+    bitmap: Array<Array<boolean>>;
+    onPointerDown: (event: PointerEvent) => void;
+    rowsColors: RGBObject[];
+    threadsColors: RGBObject[];
+    pixelSize: number;
+    className?: string;
+}) {
+    const canvasRef = useRef<CanvasHandle>(null);
 
-export function DobbyPatternEditor() {
-    const boxSize = 30;
+    const continuousDraw = useCallback(
+        (ctx: CanvasRenderingContext2D) => {
+            if (!threadsColors || !rowsColors) return;
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = 'black';
+            for (let i = 0; i < bitmap.length; i++) {
+                for (let j = 0; j < bitmap[i].length; j++) {
+                    ctx.fillStyle = new ColorTranslator(
+                        bitmap[i][j] ? threadsColors[j] : rowsColors[i]
+                    ).RGB;
+                    ctx.fillRect(j * pixelSize, i * pixelSize, pixelSize, pixelSize);
+                    ctx.strokeRect(j * pixelSize, i * pixelSize, pixelSize, pixelSize);
+                }
+            }
+        },
+        [bitmap, pixelSize, rowsColors, threadsColors]
+    );
 
-    const nThreads = 10;
-    const nTreadles = 4;
-    const nFrames = 4;
+    useEffect(() => {
+        canvasRef.current?.triggerRender();
+    }, [bitmap, pixelSize]);
 
-    const nRows = 8;
+    return (
+        <Canvas
+            onPointerDown={onPointerDown}
+            draw={continuousDraw}
+            autoDraw={false}
+            className={cn('w-full h-full min-w-0 min-h-0', className)}
+        />
+    );
+}
+
+export function DobbyPatternEditor({
+    threadsCount,
+    treadlesCount,
+    framesCount,
+    rowsCount,
+    initialThreadsColors,
+    initialRowsColors,
+    initialTreadling,
+    initialThreads,
+    initialDrawdown,
+    initialTieup,
+}: {
+    threadsCount: number;
+    treadlesCount: number;
+    framesCount: number;
+    rowsCount: number;
+    initialThreadsColors?: Array<RGBObject>;
+    initialRowsColors?: Array<RGBObject>;
+    initialTreadling?: Array<Array<boolean>>;
+    initialThreads?: Array<Array<boolean>>;
+    initialDrawdown?: Array<Array<boolean>>;
+    initialTieup?: Array<Array<boolean>>;
+}) {
+    const boxSize = 10;
+
+    const [nThreads] = useState(threadsCount);
+    const [nTreadles] = useState(treadlesCount);
+    const [nFrames] = useState(framesCount);
+
+    const [nRows] = useState(rowsCount);
 
     const [threadsColors] = useState(
-        Array.from({ length: nThreads }, (_, i) => niceColors[0][i % niceColors[0].length])
+        initialThreadsColors ||
+            Array.from({ length: nThreads }, () => new ColorTranslator(niceColors[0][0]).RGBObject)
     );
 
     const [rowsColors] = useState(
-        Array.from({ length: nThreads }, (_, i) => niceColors[1][i % niceColors[0].length])
+        initialRowsColors ||
+            Array.from({ length: nRows }, () => new ColorTranslator(niceColors[1][0]).RGBObject)
     );
 
     const [threadsColorsBitmap, setThreadsColorsBitmap] = useState(
         Array.from({ length: 1 }, () =>
-            Array.from(
-                { length: nThreads },
-                (_, k) => new ColorTranslator(threadsColors[k % threadsColors.length]).RGBObject
-            )
+            Array.from({ length: nThreads }, (_, k) => threadsColors[k % threadsColors.length])
         )
     );
 
     const [rowsColorsBitmap, setRowsColorsBitmap] = useState(
         Array.from({ length: nRows }, (_, k) =>
-            Array.from(
-                { length: 1 },
-                () => new ColorTranslator(rowsColors[k % rowsColors.length]).RGBObject
-            )
+            Array.from({ length: 1 }, () => rowsColors[k % rowsColors.length])
         )
     );
 
+    useEffect(() => {
+        setThreadsColorsBitmap(
+            Array.from({ length: 1 }, () =>
+                Array.from({ length: nThreads }, (_, k) => threadsColors[k % threadsColors.length])
+            )
+        );
+    }, [nThreads, threadsColors]);
+
+    useEffect(() => {
+        setRowsColorsBitmap(
+            Array.from({ length: nRows }, (_, k) =>
+                Array.from({ length: 1 }, () => rowsColors[k % rowsColors.length])
+            )
+        );
+    }, [nRows, rowsColors]);
+
     const [threading, setThreading] = useState(
-        Array.from({ length: nFrames }, () => Array.from({ length: nThreads }, () => false))
+        initialThreads ||
+            Array.from({ length: nFrames }, () => Array.from({ length: nThreads }, () => false))
     );
     const [tieup, setTieup] = useState(
-        Array.from({ length: nFrames }, () => Array.from({ length: nTreadles }, () => false))
+        initialTieup ||
+            Array.from({ length: nFrames }, () => Array.from({ length: nTreadles }, () => false))
     );
-    const [drawdown, setDrawdown] = useState<Array<Array<RGBObject>>>(
-        Array.from({ length: nRows }, () =>
-            Array.from({ length: nThreads }, () => {
-                return { R: 255, G: 255, B: 255 };
-            })
-        )
+    const [drawdown, setDrawdown] = useState<Array<Array<boolean>>>(
+        initialDrawdown ||
+            Array.from({ length: nRows }, () =>
+                Array.from({ length: nThreads }, () => {
+                    return false;
+                })
+            )
     );
     const [treadling, setTreadling] = useState(
-        Array.from({ length: nRows }, () => Array.from({ length: nTreadles }, () => false))
+        initialTreadling ||
+            Array.from({ length: nRows }, () => Array.from({ length: nTreadles }, () => false))
     );
 
     const updateDrawdown = useCallback(() => {
@@ -155,16 +241,8 @@ export function DobbyPatternEditor() {
             }
             return frames.some((frame) => threading[frame][j]);
         };
-        setDrawdown((prev) =>
-            prev.map((row, i) =>
-                row.map(
-                    (col, j) =>
-                        new ColorTranslator(isThreadTaken(i, j) ? threadsColors[j] : rowsColors[i])
-                            .RGBObject
-                )
-            )
-        );
-    }, [rowsColors, threading, threadsColors, tieup, treadling]);
+        setDrawdown((prev) => prev.map((row, i) => row.map((col, j) => isThreadTaken(i, j))));
+    }, [nFrames, threading, tieup, treadling]);
 
     useEffect(() => {
         updateDrawdown();
@@ -256,10 +334,12 @@ export function DobbyPatternEditor() {
                     }}
                     className={cn('col-start-1 row-start-3')}
                 >
-                    <ColoredBitmapCanvas
+                    <DrawdownCanvas
                         bitmap={drawdown}
                         pixelSize={boxSize}
                         onPointerDown={onDrawdownPointerDown}
+                        rowsColors={rowsColors}
+                        threadsColors={threadsColors}
                     />
                 </div>
 

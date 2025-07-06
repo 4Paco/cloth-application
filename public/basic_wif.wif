@@ -1,0 +1,25 @@
+[WIF]
+Version=1.0
+
+[Threading]
+1=1
+2=2
+3=3
+4=4
+
+[Tieup]
+1=1,3
+2=2,4
+
+[Treadling]
+1=1
+2=2
+3=1
+4=2
+
+[Warp Colors]
+1=999,0,0
+2=0,999,0
+
+[Weft Colors]
+1=0,0,999

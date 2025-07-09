@@ -130,8 +130,8 @@ export function ColorSettingForm({
         //<form onSubmit={handleSubmit}>
         <form>
             <FormArea name="L" value={value.L} min={0} max={100} setColorValue={setValue} />
-            <FormArea name="a" value={value.a} min={-128} max={127} setColorValue={setValue} />
-            <FormArea name="b" value={value.b} min={-128} max={127} setColorValue={setValue} />
+            <FormArea name="a" value={value.a} min={-125} max={125} setColorValue={setValue} />
+            <FormArea name="b" value={value.b} min={-125} max={125} setColorValue={setValue} />
             {/*<input type="submit" />*/}
         </form>
     );

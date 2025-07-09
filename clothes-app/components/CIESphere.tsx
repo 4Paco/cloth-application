@@ -210,6 +210,7 @@ const CIESphere = ({
 
     const clickCallback = (instanceId: number) => {
         setLabSelected({
+            //L a b defined like this because they are already encoded in point.position + colorTranslator is not bijective
             L: points[instanceId].position.z + 50,
             a: points[instanceId].position.x,
             b: points[instanceId].position.y,
@@ -330,8 +331,8 @@ const CIESphere = ({
                                                 (c) => c.id === family.id
                                             );
                                             if (
-                                                !alreadySelected &&
-                                                designColorants.length < maxColors
+                                                !alreadySelected
+                                                //&& designColorants.length < maxColors
                                             ) {
                                                 setDesignColorants((prev) => {
                                                     return [...prev, family];

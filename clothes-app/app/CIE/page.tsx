@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { ColorTranslator } from 'colortranslator';
 import { FileIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Switch } from '@mui/material';
 
 // function Settings() {
 //     return (
@@ -162,9 +163,12 @@ function SelectionDisplay({ LabColor }: { LabColor: any }) {
     let color = new ColorTranslator(LabColor);
     return (
         <>
-            <br></br>
             <div
-                style={{ background: `rgb(${color.R}, ${color.G}, ${color.B})`, height: '2rem' }}
+                style={{
+                    background: `rgb(${color.R}, ${color.G}, ${color.B})`,
+                    height: '2rem',
+                    width: '55%',
+                }}
             ></div>
         </>
     );
@@ -185,15 +189,6 @@ function CIESelect() {
     const maxiHoursDisplayed = Math.max(
         ...designColorants.flatMap((c) => c.points.map((c2) => c2.hours))
     );
-
-    // const suggestedColors = [
-    //     points[1147].color,
-    //     points[242].color,
-    //     points[40].color,
-    //     points[198].color,
-    //     points[960].color,
-    //     points[209].color,
-    // ];
 
     useEffect(() => {
         async function parseData() {
@@ -259,21 +254,31 @@ function CIESelect() {
                         >
                             Tolerance
                         </SettingSlider>
-
                         <SettingCheckbox value={selectEndingPoint} setValue={setSelectEndingPoint}>
                             Select colorants by ending point (default starting point)
                         </SettingCheckbox>
+                        <div className="flax flex-row flex-1/3">
+                            <label>Select by starting point</label>
+                            <Switch
+                                checked={selectEndingPoint}
+                                onChange={(checked) => {
+                                    setSelectEndingPoint(checked.target.checked);
+                                }}
+                            />
+                            <label>Select by ending point</label>
+                        </div>
                         <Separator />
-                        <div>Selected color : </div>
+                        <div className="flex flex-row">
+                            <div className="pr-2">Selected color : </div>
+                            <SelectionDisplay LabColor={labSelected} />
+                        </div>
                         <ColorSettingForm value={labSelected} setValue={setLabSelected} />
-                        <SelectionDisplay LabColor={labSelected} />
-                        {/*<div>{JSON.stringify(labSelected)}</div>*/}
                         <Separator />
                         {designColorants.length > 0 && (
                             <div className="flex flex-col place-content-start pr-2">
                                 <h4 className="self-center">
                                     Ongoing selection of colorants <br />
-                                    (gradient on {maxiHoursDisplayed} hours):
+                                    (gradient on {maxiHoursDisplayed} hours)
                                 </h4>
                                 {designColorants.map((id_select, i) => {
                                     const colorantData =
@@ -329,15 +334,19 @@ function CIESelect() {
                                 })}
                             </div>
                         )}
-
                         <Button
-                            disabled={designColorants.length < requiredColorCount}
+                            disabled={designColorants.length !== requiredColorCount}
                             onClick={() => {
                                 router.push('/CIE/preview');
                             }}
                         >
                             Use my selected colorants
                         </Button>
+                        {designColorants.length > requiredColorCount && (
+                            <div className="text-red-500 font-bold">
+                                You only need {requiredColorCount} colorants for the next step!
+                            </div>
+                        )}
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
